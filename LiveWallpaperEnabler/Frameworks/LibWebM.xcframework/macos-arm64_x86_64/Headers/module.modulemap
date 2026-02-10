@@ -1,0 +1,4 @@
+module LibWebM {
+    header "LibWebM.hpp"
+    export *
+}
