@@ -1,0 +1,70 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created by the OS
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Xcode
+#
+# gitignore contributors: scroll down to GitHub 'Objective-C' github.com/github/gitignore/blob/main/Objective-C.gitignore if you are using Xcode
+
+## User settings
+xcuserdata/
+
+## DerivedData
+DerivedData/
+
+## Architecture folders
+*.moved-aside
+*.xcuserstate
+
+## Project Settings
+# !default.xcscheme
+# !default.xcworkspace
+# !xcschememanagement.plist
+
+# Build artifacts
+build/
+bin/
+obj/
+*.pyc
+*.o
+*.a
+*.dylib
+*.framework
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# FFmpeg Build artifacts
+src/
+ffmpeg_install/
+
+# Local scripts / logs
+*.log
+*.sh.done
+
+# User specific
+.vscode/
+.idea/
