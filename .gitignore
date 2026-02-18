@@ -70,4 +70,4 @@ ffmpeg_install/
 .idea/
 
 # Local scripts / logs
-scripts/project_context.xml
+scripts/
