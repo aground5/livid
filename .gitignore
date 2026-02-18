@@ -68,3 +68,6 @@ ffmpeg_install/
 # User specific
 .vscode/
 .idea/
+
+# Local scripts / logs
+scripts/
