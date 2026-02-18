@@ -521,8 +521,8 @@ class AerialService {
     /// Checks if an asset is a user-added custom asset
     func isCustomAsset(_ assetID: String) -> Bool {
         guard let asset = manifest?.assets.first(where: { $0.id == assetID }) else { return false }
-        // Custom assets use file:// URLs for their video source
-        return asset.url4KSDR240FPS?.hasPrefix("file://") ?? false
+        // Custom assets use local patch server URLs (modern)
+        return asset.url4KSDR240FPS?.hasPrefix("http://localhost") ?? false
     }
     
     /// Checks if a category is user-created (contains only custom assets)
