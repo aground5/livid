@@ -251,8 +251,8 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				0A8CFC5D2F34BAB7006D784F /* XCRemoteSwiftPackageReference "hummingbird" */,
-				0A1BD1352F3A34EE005AA44A /* XCLocalSwiftPackageReference "../WebMSupport" */,
-				0AA556CF2F3A354D0072AB25 /* XCLocalSwiftPackageReference "../YouTubeKit" */,
+				0A1BD1352F3A34EE005AA44A /* XCLocalSwiftPackageReference "../Packages/WebMSupport" */,
+				0AA556CF2F3A354D0072AB25 /* XCLocalSwiftPackageReference "../Packages/YouTubeKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0A291C5C2F29066600A8B5B9 /* Products */;
@@ -603,13 +603,13 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		0A1BD1352F3A34EE005AA44A /* XCLocalSwiftPackageReference "../WebMSupport" */ = {
+		0A1BD1352F3A34EE005AA44A /* XCLocalSwiftPackageReference "../Packages/WebMSupport" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../WebMSupport;
+			relativePath = ../Packages/WebMSupport;
 		};
-		0AA556CF2F3A354D0072AB25 /* XCLocalSwiftPackageReference "../YouTubeKit" */ = {
+		0AA556CF2F3A354D0072AB25 /* XCLocalSwiftPackageReference "../Packages/YouTubeKit" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../YouTubeKit;
+			relativePath = ../Packages/YouTubeKit;
 		};
 /* End XCLocalSwiftPackageReference section */
 

@@ -297,9 +297,9 @@ echo "📍 Artifacts are in: $BUILD_DIR"
 ls -lh "$BUILD_DIR/bin/"
 
 # ======================
-# 7. Copy to WebMSupport
+# 7. Copy to Packages/WebMSupport
 # ======================
-DEST_DIR="$PROJECT_ROOT/WebMSupport/Frameworks/FFmpeg.xcframework"
+DEST_DIR="$PROJECT_ROOT/Packages/WebMSupport/Frameworks/FFmpeg.xcframework"
 REAL_DEST_DIR="${DEST_DIR%.xcframework}"
 
 echo "📦 Copying libraries and headers to $DEST_DIR..."
