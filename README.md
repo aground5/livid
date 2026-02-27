@@ -133,3 +133,10 @@ This project is licensed under the MIT License - see the `LICENSE` file for deta
 
 **Author**: k2zoo
 **Issues**: Please file an issue on GitHub for bugs or feature requests.
+
+---
+
+## 🌐 Get Livid
+
+Looking for premium, high-quality video wallpapers? We are currently building a marketplace for exclusive, high-resolution Live Wallpapers!
+Visit us at: **[https://getlivid.app/](https://getlivid.app/)**
