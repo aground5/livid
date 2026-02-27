@@ -28,7 +28,7 @@
 ## ✨ 핵심 기능 (Key Features)
 
 *   **네이티브 Aerial 주입 (Native Aerial Injection)**: MOV 파일의 Atom 구조(`moov`, `trak`, `csgm`, `sgpd`, `tapt`)를 분석하고 패치하여, 커스텀 비디오를 macOS 공식 다이내믹 월페이퍼로 인식되게 만듭니다.
-*   **'골든 포뮬러' 트랜스코딩 ("The Golden Formula" Transcoding)**: 커스텀 빌드된 정적 FFmpeg 엔진(`WebMSupport`)을 내장하여, macOS 잠금 화면 재생에 필수적인 **10-bit HEVC** 포맷과 GOP 구조로 완벽하게 변환합니다.
+*   **최적화된 Aerial 트랜스코딩 (Optimal Aerial Transcoding)**: 커스텀 빌드된 정적 FFmpeg 엔진(`WebMSupport`)을 내장하여, macOS 잠금 화면 재생에 필수적인 **10-bit HEVC** 포맷과 GOP 구조로 완벽하게 변환합니다.
 *   **스마트 화질 엔진 (Smart Quality Engine)**: HDR, 광색역(P3), High Chroma 콘텐츠를 자동으로 감지하고, 지능형 톤매핑(Tone-mapping) 또는 4:4:4 다운샘플링 전략을 적용합니다.
 *   **통합 YouTube 다운로더**: 번들링된 `yt-dlp` 바이너리와 `YouTubeKit`을 통해 최대 **8K HDR** 영상을 메타데이터와 함께 자동으로 다운로드합니다.
 *   **시스템 카탈로그 관리**: 시스템의 `entries.json` 매니페스트를 수정하여, 사용자 정의 카테고리를 생성하고 macOS 배경화면 설정에 에셋을 직접 등록합니다.
@@ -62,27 +62,26 @@
     cd LiveWallpaperEnabler
     ```
 
-2.  **정적 FFmpeg 라이브러리 빌드:**
-    이 프로젝트는 특정 라이브러리(`libx265`, `libplacebo`, `libdav1d`)가 포함된 커스텀 정적 FFmpeg 빌드에 의존합니다. 포함된 빌드 스크립트를 실행하세요:
+2.  **Make를 이용한 빌드 및 실행:**
+    이 프로젝트는 FFmpeg 의존성 컴파일, SPM 패키지 리졸브, 단일 인스턴스 Xcode 프로젝트 빌드를 한 번에 자동 처리하는 `Makefile`을 제공합니다.
+    다음 명령어를 터미널에서 실행하세요:
     ```bash
-    chmod +x build_ffmpeg_static.sh
-    ./build_ffmpeg_static.sh
+    make run
     ```
-    *이 과정은 몇 분 정도 소요될 수 있습니다.*
+    *참고: 처음 빌드할 때는 소스에서 FFmpeg를 컴파일하므로 몇 분 정도 소요될 수 있습니다. 이후의 빌드는 훨씬 빠르게 완료됩니다.*
 
-3.  **프로젝트 열기:**
-    Xcode에서 `LiveWallpaperEnabler/LiveWallpaperEnabler.xcodeproj`를 엽니다.
-
-4.  **빌드 및 실행:**
-    `LiveWallpaperEnabler` 스킴을 선택하고 실행합니다 (Cmd+R).
-    *참고: 빌드 단계에서 XPC 서비스(`LiveWallpaperHelper`)가 올바르게 임베드되었는지 확인하세요.*
+3.  **빌드 환경 초기화 (선택 사항):**
+    만약 캐시 문제나 Swift Package Manager 에러가 발생하면, 다음 명령어로 빌드 환경과 캐시를 완전히 초기화할 수 있습니다:
+    ```bash
+    make clean-all
+    ```
 
 ### 사용 방법 (Usage)
 
 1.  **가져오기 (Import)**: **Start** 탭에서 동영상 파일을 드래그 앤 드롭하거나 YouTube URL을 붙여넣습니다.
 2.  **준비 (Prepare)**: 앱이 영상의 메타데이터(HDR, 프레임레이트, 비트레이트 등)를 분석합니다.
 3.  **편집 (Edit)**: **Editor** 탭으로 이동하여 영상을 트리밍합니다. "Side-by-Side" 뷰를 사용해 시작과 끝 루프가 자연스러운지 비교할 수 있습니다.
-4.  **렌더링 (Render)**: 렌더링 대기열에 추가합니다. 앱이 macOS 호환성을 위해 "골든 포뮬러"를 적용하여 영상을 트랜스코딩합니다.
+4.  **렌더링 (Render)**: 렌더링 대기열에 추가합니다. 앱이 macOS 시스템과 완벽히 호환되는 최적의 포맷으로 영상을 트랜스코딩합니다.
 5.  **등록 (Register)**: **Library** 탭으로 이동하여 렌더링된 월페이퍼를 우클릭하고 **"Add to System Catalog"**를 선택합니다.
 6.  **적용 (Apply)**: macOS **시스템 설정 -> 배경화면**을 엽니다. 여러분이 만든 커스텀 카테고리와 월페이퍼가 나타날 것입니다.
 
@@ -103,9 +102,10 @@
 │   │   └── Storage         # 월페이퍼 영구 저장소
 │   ├── Features            # SwiftUI 뷰 (Main, Editor, Library, Catalog)
 │   └── LiveWallpaperHelper # XPC 서비스 (특권 작업, 바이너리 매니저)
-├── WebMSupport             # Swift 패키지: FFmpeg 및 트랜스코딩용 C++ 브릿지
-├── YouTubeKit              # Swift 패키지: YouTube 메타데이터 추출
-└── build_ffmpeg_static.sh  # FFmpeg 의존성 빌드 스크립트
+├── Packages                # 로컬 Swift 패키지 저장소
+│   ├── WebMSupport         # FFmpeg 및 트랜스코딩용 C++ 브릿지
+│   └── YouTubeKit          # YouTube 메타데이터 추출 (make 실행 시 클론됨)
+└── Makefile                # FFmpeg 초기화 및 프로젝트 자동 빌드 스크립트
 ```
 
 ---

@@ -28,7 +28,7 @@ Unlike simple video wallpaper apps that run an overlay window, this tool **patch
 ## ✨ Key Features
 
 *   **Native Aerial Injection**: Parses and patches MOV atoms (`moov`, `trak`, `csgm`, `sgpd`, `tapt`) to make custom videos recognized by macOS as official dynamic wallpapers.
-*   **"The Golden Formula" Transcoding**: Includes a custom-built static FFmpeg engine (`WebMSupport`) that converts videos to the specific **10-bit HEVC** format and GOP structure required by the macOS Lock Screen.
+*   **Optimal Aerial Transcoding**: Includes a custom-built static FFmpeg engine (`WebMSupport`) that converts videos to the specific **10-bit HEVC** format and GOP structure required by the macOS Lock Screen.
 *   **Smart Quality Engine**: Automatically detects HDR, Wide Color (P3), and High Chroma content, applying intelligent tone-mapping or 4:4:4 downsampling strategies.
 *   **Integrated YouTube Downloader**: Fetches videos up to **8K HDR** using a bundled `yt-dlp` binary and `YouTubeKit`, with automatic metadata extraction.
 *   **System Catalog Management**: Modifies the system's `entries.json` manifest to create custom categories and register assets directly into the macOS Wallpaper settings.
@@ -62,27 +62,26 @@ Unlike simple video wallpaper apps that run an overlay window, this tool **patch
     cd LiveWallpaperEnabler
     ```
 
-2.  **Build Static FFmpeg Libraries:**
-    The project relies on a custom static build of FFmpeg with specific libraries (`libx265`, `libplacebo`, `libdav1d`). Run the included build script:
+2.  **Build & Run with Make:**
+    The project provides an automated `Makefile` that handles compiling all FFmpeg dependencies, resolving SPM packages, copying frameworks, and building the Xcode project.
+    Simply run:
     ```bash
-    chmod +x build_ffmpeg_static.sh
-    ./build_ffmpeg_static.sh
+    make run
     ```
-    *This process may take several minutes.*
+    *Note: The first time you run this, it may take several minutes to build FFmpeg from source. Subsequent runs will be much faster.*
 
-3.  **Open Project:**
-    Open `LiveWallpaperEnabler/LiveWallpaperEnabler.xcodeproj` in Xcode.
-
-4.  **Build & Run:**
-    Select the **LiveWallpaperEnabler** scheme and run (Cmd+R).
-    *Note: Ensure the XPC Service (`LiveWallpaperHelper`) is embedded correctly in the build phases.*
+3.  **Reset / Clean Build Cache:**
+    If you encounter any caching issues or Swift Package Manager errors, you can completely reset the build environment and SPM caches:
+    ```bash
+    make clean-all
+    ```
 
 ### Usage
 
 1.  **Import**: Drag and drop a video file or paste a YouTube URL in the **Start** tab.
 2.  **Prepare**: The app will analyze the metadata (HDR, framerate, bitrate).
 3.  **Edit**: Switch to the **Editor** tab to trim the video. Use the "Side-by-Side" view to compare start/end loops.
-4.  **Render**: Add to the Render Queue. The app will transcode the video using the "Golden Formula" to ensure macOS compatibility.
+4.  **Render**: Add to the Render Queue. The app will transcode the video using the optimal format to ensure macOS compatibility.
 5.  **Register**: Go to the **Library**, right-click your rendered wallpaper, and select **"Add to System Catalog"**.
 6.  **Apply**: Open macOS **System Settings -> Wallpaper**. Your custom category and wallpaper will appear there.
 
@@ -103,9 +102,10 @@ Unlike simple video wallpaper apps that run an overlay window, this tool **patch
 │   │   └── Storage         # Wallpaper persistence
 │   ├── Features            # SwiftUI Views (Main, Editor, Library, Catalog)
 │   └── LiveWallpaperHelper # XPC Service (Privileged operations, BinaryManager)
-├── WebMSupport             # Swift Package: C++ Bridge for FFmpeg & Transcoding
-├── YouTubeKit              # Swift Package: YouTube metadata & extraction
-└── build_ffmpeg_static.sh  # Script to build FFmpeg dependencies
+├── Packages                # Local Swift Packages
+│   ├── WebMSupport         # C++ Bridge for FFmpeg & Transcoding
+│   └── YouTubeKit          # YouTube metadata & extraction (cloned via make)
+└── Makefile                # Main build script for ffmpeg, deps, and Xcode
 ```
 
 ---
