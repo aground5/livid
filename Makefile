@@ -30,13 +30,16 @@ REPO_X265       := https://bitbucket.org/multicoreware/x265_git.git
 REPO_DAV1D      := https://code.videolan.org/videolan/dav1d.git
 REPO_LIBPLACEBO := https://github.com/haasn/libplacebo.git
 REPO_FFMPEG     := https://git.ffmpeg.org/ffmpeg.git
+REPO_YOUTUBEKIT := https://github.com/alexeichhorn/YouTubeKit.git
+COMMIT_YOUTUBEKIT := 068403f2b7523c7620eab257e64402f722821e05
 
 # ==============================================================================
 # Targets
 # ==============================================================================
 
 .PHONY: all clean clean-all dirs zimg x264 x265 dav1d libplacebo ffmpeg copy-framework \
-        clean-zimg clean-x264 clean-x265 clean-dav1d clean-libplacebo clean-ffmpeg
+        clean-zimg clean-x264 clean-x265 clean-dav1d clean-libplacebo clean-ffmpeg \
+        clean-xcode-cache resolve-deps build-xcode run
 
 dirs:
 	@mkdir -p $(SRC_DIR)
@@ -48,7 +51,7 @@ dirs:
 ZIMG_DIR := $(SRC_DIR)/zimg
 ZIMG_LIB := $(LIB_DIR)/libzimg.a
 
-$(ZIMG_DIR):
+$(ZIMG_DIR): | dirs
 	@echo "📥 Cloning zimg..."
 	cd $(SRC_DIR) && git clone --recursive $(REPO_ZIMG) zimg
 
@@ -71,7 +74,7 @@ zimg: $(ZIMG_LIB)
 X264_DIR := $(SRC_DIR)/x264
 X264_LIB := $(LIB_DIR)/libx264.a
 
-$(X264_DIR):
+$(X264_DIR): | dirs
 	@echo "📥 Cloning x264..."
 	cd $(SRC_DIR) && git clone $(REPO_X264) x264
 
@@ -94,7 +97,7 @@ X265_DIR      := $(SRC_DIR)/x265_git
 X265_BUILD_DIR := $(X265_DIR)/build/linux
 X265_LIB      := $(LIB_DIR)/libx265.a
 
-$(X265_DIR):
+$(X265_DIR): | dirs
 	@echo "📥 Cloning x265..."
 	cd $(SRC_DIR) && git clone $(REPO_X265) x265_git
 
@@ -142,7 +145,7 @@ x265: $(X265_LIB)
 DAV1D_DIR := $(SRC_DIR)/dav1d
 DAV1D_LIB := $(LIB_DIR)/libdav1d.a
 
-$(DAV1D_DIR):
+$(DAV1D_DIR): | dirs
 	@echo "📥 Cloning dav1d..."
 	cd $(SRC_DIR) && git clone $(REPO_DAV1D) dav1d
 
@@ -168,7 +171,7 @@ PLACEBO_DIR := $(SRC_DIR)/libplacebo
 PLACEBO_LIB := $(LIB_DIR)/libplacebo.a
 PLACEBO_PC  := $(LIB_DIR)/pkgconfig/libplacebo.pc
 
-$(PLACEBO_DIR):
+$(PLACEBO_DIR): | dirs
 	@echo "📥 Cloning libplacebo..."
 	cd $(SRC_DIR) && git clone --recursive $(REPO_LIBPLACEBO) libplacebo
 
@@ -246,7 +249,7 @@ FFMPEG_CONFIG_FLAGS := \
 	--extra-ldflags="-L$(LIB_DIR) -L/opt/homebrew/lib" \
 	--extra-libs="-lplacebo -lshaderc_shared -llcms2 -lzimg -ldav1d -lx264 -lx265 -lc++ -framework Metal -framework CoreVideo -framework IOSurface -framework QuartzCore -framework Foundation"
 
-$(FFMPEG_DIR):
+$(FFMPEG_DIR): | dirs
 	@echo "📥 Cloning FFmpeg..."
 	cd $(SRC_DIR) && git clone $(REPO_FFMPEG) ffmpeg
 
@@ -266,7 +269,7 @@ ffmpeg: $(FFMPEG_BIN)
 # ==============================================================================
 # 7. Copy Frameworks
 # ==============================================================================
-FRAMEWORK_DEST := $(PROJECT_ROOT)/WebMSupport/Frameworks/FFmpeg.xcframework
+FRAMEWORK_DEST := $(PROJECT_ROOT)/Packages/WebMSupport/Frameworks/FFmpeg.xcframework
 REAL_DEST      := $(FRAMEWORK_DEST:.xcframework=)
 
 copy-framework: ffmpeg
@@ -310,7 +313,41 @@ clean-ffmpeg:
 clean:
 	@echo "🧹 Cleaning main build artifacts..."
 	rm -rf $(BUILD_DIR)
+	rm -rf $(XCODE_BUILD_DIR)
 
-clean-all: clean
+clean-all: clean clean-xcode-cache
 	@echo "🧹 Cleaning source directories..."
 	rm -rf $(SRC_DIR)
+
+# ==============================================================================
+# 8. Xcode Application
+# ==============================================================================
+
+XCODE_PROJ := $(PROJECT_ROOT)/LiveWallpaperEnabler/LiveWallpaperEnabler.xcodeproj
+XCODE_SCHEME := LiveWallpaperEnabler
+XCODE_BUILD_DIR := $(PROJECT_ROOT)/build_xcode
+
+clean-xcode-cache:
+	@echo "🧹 Cleaning Xcode SPM cache..."
+	rm -rf $(XCODE_PROJ)/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+	rm -rf $(XCODE_PROJ)/project.xcworkspace/xcshareddata/swiftpm/configuration
+
+resolve-deps: clean-xcode-cache
+	@echo "� Checking YouTubeKit..."
+	@if [ ! -d "$(PROJECT_ROOT)/Packages/YouTubeKit" ] || [ -z "$$(ls -A $(PROJECT_ROOT)/Packages/YouTubeKit)" ]; then \
+		echo "📥 Cloning YouTubeKit..."; \
+		rm -rf $(PROJECT_ROOT)/Packages/YouTubeKit; \
+		git clone $(REPO_YOUTUBEKIT) $(PROJECT_ROOT)/Packages/YouTubeKit && \
+		cd $(PROJECT_ROOT)/Packages/YouTubeKit && git checkout $(COMMIT_YOUTUBEKIT); \
+	fi
+	@echo "�📦 Resolving Swift Package dependencies..."
+	xcodebuild -resolvePackageDependencies -project $(XCODE_PROJ)
+
+build-xcode: copy-framework resolve-deps
+	@echo "🏗️ Building Xcode project..."
+	xcodebuild -project $(XCODE_PROJ) -scheme $(XCODE_SCHEME) -configuration Debug \
+		SYMROOT=$(XCODE_BUILD_DIR) build
+
+run: build-xcode
+	@echo "🚀 Launching LiveWallpaperEnabler..."
+	open $(XCODE_BUILD_DIR)/Debug/$(XCODE_SCHEME).app
