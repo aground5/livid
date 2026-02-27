@@ -58,8 +58,8 @@
 
 1.  **저장소 클론:**
     ```bash
-    git clone https://github.com/yourusername/LiveWallpaperEnabler.git
-    cd LiveWallpaperEnabler
+    git clone https://github.com/aground5/livid-community.git
+    cd livid-community
     ```
 
 2.  **Make를 이용한 빌드 및 실행:**
@@ -131,5 +131,5 @@
 
 ## 📧 연락처 (Contact)
 
-**작성자**: [Your Name/Handle]
+**작성자**: k2zoo
 **이슈(Issues)**: 버그나 기능 요청은 GitHub Issues에 등록해 주세요.

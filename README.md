@@ -131,5 +131,5 @@ This project is licensed under the MIT License - see the `LICENSE` file for deta
 
 ## 📧 Contact
 
-**Author**: [Your Name/Handle]
+**Author**: k2zoo
 **Issues**: Please file an issue on GitHub for bugs or feature requests.
