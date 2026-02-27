@@ -50,7 +50,7 @@
 
 ### 요구 사양 (Prerequisites)
 
-*   macOS 14.0 (Sonoma) 이상.
+*   macOS 26.0 이상.
 *   빌드를 위한 Xcode 15.0 이상.
 *   **Homebrew** (FFmpeg 빌드 툴 설치를 위해 필요).
 

@@ -50,7 +50,7 @@ Unlike simple video wallpaper apps that run an overlay window, this tool **patch
 
 ### Prerequisites
 
-*   macOS 14.0 (Sonoma) or later.
+*   macOS 26.0 or later.
 *   Xcode 15.0+ for building.
 *   **Homebrew** (required to install build tools for FFmpeg).
 
@@ -58,8 +58,8 @@ Unlike simple video wallpaper apps that run an overlay window, this tool **patch
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/yourusername/LiveWallpaperEnabler.git
-    cd LiveWallpaperEnabler
+    git clone https://github.com/aground5/livid-community.git
+    cd livid-community
     ```
 
 2.  **Build & Run with Make:**
