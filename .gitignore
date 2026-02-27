@@ -56,6 +56,18 @@ obj/
 # Swift Package Manager
 .build/
 .swiftpm/
+Package.resolved
+**/.xcworkspace/xcshareddata/swiftpm/configuration/
+
+# Local binaries and tests
+helper_tester
+
+# Downloaded Media
+*.webm
+*.mp4
+
+# Managed Local Packages
+Packages/YouTubeKit
 
 # FFmpeg Build artifacts
 src/
