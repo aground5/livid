@@ -212,7 +212,18 @@ struct CategorySectionView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 18) {
                         ForEach(assets) { asset in
-                            AssetThumbnail(asset: asset, isSelected: viewModel.selectedAerialAsset?.id == asset.id, onRegister: onRegister)
+                            AssetThumbnail(
+                                asset: asset,
+                                isSelected: viewModel.selectedAerialAsset?.id == asset.id,
+                                onRegister: onRegister,
+                                onDelete: {
+                                    if viewModel.selectedAerialAsset?.id == asset.id {
+                                        withAnimation {
+                                            viewModel.selectedAerialAsset = nil
+                                        }
+                                    }
+                                }
+                            )
                                 .onTapGesture {
                                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                         viewModel.selectedAerialAsset = asset
@@ -260,6 +271,7 @@ struct AssetThumbnail: View {
     let asset: AerialAsset
     let isSelected: Bool
     let onRegister: (LiveWallpaperItem) -> Void
+    let onDelete: () -> Void
     private let aerialService = AerialService.shared
     @State private var showDeleteAlert = false
     
@@ -350,12 +362,7 @@ struct AssetThumbnail: View {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
                 _ = aerialService.deleteCustomAsset(assetID: asset.id)
-                // Clear selection if the deleted asset was currently selected
-                if viewModel.selectedAerialAsset?.id == asset.id {
-                    withAnimation {
-                        viewModel.selectedAerialAsset = nil
-                    }
-                }
+                onDelete()
             }
         } message: {
             Text("Are you sure you want to delete \"\(aerialService.getAssetName(for: asset))\"? This will remove it from the catalog.")
