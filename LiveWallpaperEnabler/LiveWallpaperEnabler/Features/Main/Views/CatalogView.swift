@@ -227,6 +227,11 @@ struct CategorySectionView: View {
                 Button("Cancel", role: .cancel) { }
                 Button("Delete All", role: .destructive) {
                     _ = aerialService.deleteCustomCategory(categoryID: category.id)
+                    if let selectedAsset = viewModel.selectedAerialAsset, selectedAsset.categories.contains(category.id) {
+                        withAnimation {
+                            viewModel.selectedAerialAsset = nil
+                        }
+                    }
                 }
             } message: {
                 Text("Are you sure you want to delete \"\(sectionTitle)\" and all \(assets.count) wallpaper(s) in it?")
@@ -345,6 +350,12 @@ struct AssetThumbnail: View {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
                 _ = aerialService.deleteCustomAsset(assetID: asset.id)
+                // Clear selection if the deleted asset was currently selected
+                if viewModel.selectedAerialAsset?.id == asset.id {
+                    withAnimation {
+                        viewModel.selectedAerialAsset = nil
+                    }
+                }
             }
         } message: {
             Text("Are you sure you want to delete \"\(aerialService.getAssetName(for: asset))\"? This will remove it from the catalog.")

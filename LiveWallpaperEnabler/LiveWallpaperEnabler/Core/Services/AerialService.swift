@@ -470,7 +470,7 @@ class AerialService {
             return false
         }
         
-        _ = manifest!.assets.remove(at: index)
+        let asset = manifest!.assets.remove(at: index)
         
         // 2. Delete the video file (symlink)
         let videoURL = systemVideoDir.appendingPathComponent("\(assetID).mov")
@@ -485,7 +485,39 @@ class AerialService {
         let nameKey = "AerialAsset_\(cleanAssetID)_NAME"
         removeFromStrings(key: nameKey)
         
-        // 5. Save manifest
+        // 5. Clean up category references
+        let affectedCategoryIDs = asset.categories
+        for catID in affectedCategoryIDs {
+            if let catIndex = manifest!.categories.firstIndex(where: { $0.id == catID }) {
+                let remaining = manifest!.assets.filter { $0.categories.contains(catID) }
+                
+                if remaining.isEmpty {
+                    // Category is empty, safely delete if it's custom
+                    if isCustomCategory(catID) {
+                        _ = deleteCustomCategory(categoryID: catID)
+                    }
+                } else {
+                    // Still has assets, check if we need to update the representative asset
+                    if manifest!.categories[catIndex].representativeAssetID == assetID {
+                        if let newRep = remaining.first {
+                            manifest!.categories[catIndex].representativeAssetID = newRep.id
+                            manifest!.categories[catIndex].previewImage = newRep.previewImage
+                            
+                            // Also update subcategory if needed
+                            if let subID = newRep.subcategories?.first,
+                               var subcategories = manifest!.categories[catIndex].subcategories,
+                               let subIndex = subcategories.firstIndex(where: { $0.id == subID }) {
+                                subcategories[subIndex].representativeAssetID = newRep.id
+                                subcategories[subIndex].previewImage = newRep.previewImage
+                                manifest!.categories[catIndex].subcategories = subcategories
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 6. Save manifest
         saveManifest()
         
         print("Successfully deleted custom asset: \(assetID)")

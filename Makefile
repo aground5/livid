@@ -396,7 +396,8 @@ release-dmg: build-release
 appcast:
 	@echo "📡 Generating Sparkle appcast..."
 	@mkdir -p $(RELEASES_DIR)
-	@$(GEN_APPCAST) --download-url-prefix https://getlivid.app/releases/ $(RELEASES_DIR)
+	@VERSION=$$(defaults read $(RELEASE_APP_PATH)/Contents/Info.plist CFBundleShortVersionString); \
+	$(GEN_APPCAST) --download-url-prefix https://github.com/aground5/livid-community/releases/download/v$${VERSION}/ $(RELEASES_DIR)
 	@echo "✅ Appcast updated in $(RELEASES_DIR)/appcast.xml"
 
 release-all: release-dmg appcast
