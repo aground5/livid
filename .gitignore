@@ -46,6 +46,7 @@ DerivedData/
 # Build artifacts
 build/
 build_xcode/
+releases/
 bin/
 obj/
 *.pyc
@@ -53,6 +54,7 @@ obj/
 *.a
 *.dylib
 *.framework
+*.dmg
 
 # Swift Package Manager
 .build/
