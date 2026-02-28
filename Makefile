@@ -39,7 +39,7 @@ COMMIT_YOUTUBEKIT := 068403f2b7523c7620eab257e64402f722821e05
 
 .PHONY: all clean clean-all dirs zimg x264 x265 dav1d libplacebo ffmpeg copy-framework \
         clean-zimg clean-x264 clean-x265 clean-dav1d clean-libplacebo clean-ffmpeg \
-        clean-xcode-cache resolve-deps build-xcode run
+        clean-xcode-cache resolve-deps build-xcode build-release release-dmg release-all appcast run
 
 dirs:
 	@mkdir -p $(SRC_DIR)
@@ -314,6 +314,7 @@ clean:
 	@echo "🧹 Cleaning main build artifacts..."
 	rm -rf $(BUILD_DIR)
 	rm -rf $(XCODE_BUILD_DIR)
+	rm -f $(PROJECT_ROOT)/$(APP_NAME).dmg
 
 clean-all: clean clean-xcode-cache
 	@echo "🧹 Cleaning source directories..."
@@ -323,9 +324,16 @@ clean-all: clean clean-xcode-cache
 # 8. Xcode Application
 # ==============================================================================
 
-XCODE_PROJ := $(PROJECT_ROOT)/LiveWallpaperEnabler/LiveWallpaperEnabler.xcodeproj
+XCODE_PROJ_DIR := $(PROJECT_ROOT)/LiveWallpaperEnabler
+XCODE_PROJ := $(XCODE_PROJ_DIR)/LiveWallpaperEnabler.xcodeproj
 XCODE_SCHEME := LiveWallpaperEnabler
 XCODE_BUILD_DIR := $(PROJECT_ROOT)/build_xcode
+APP_NAME := Livid
+DMG_BG := $(XCODE_PROJ_DIR)/dmg_background.png
+RELEASE_APP_PATH := $(XCODE_BUILD_DIR)/Release/$(APP_NAME).app
+DMG_OUT := $(RELEASES_DIR)/$(APP_NAME).dmg
+RELEASES_DIR := $(PROJECT_ROOT)/releases
+GEN_APPCAST := $(XCODE_PROJ_DIR)/build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_appcast
 
 clean-xcode-cache:
 	@echo "🧹 Cleaning Xcode SPM cache..."
@@ -333,21 +341,67 @@ clean-xcode-cache:
 	rm -rf $(XCODE_PROJ)/project.xcworkspace/xcshareddata/swiftpm/configuration
 
 resolve-deps: clean-xcode-cache
-	@echo "� Checking YouTubeKit..."
+	@echo "🔍 Checking YouTubeKit..."
 	@if [ ! -d "$(PROJECT_ROOT)/Packages/YouTubeKit" ] || [ -z "$$(ls -A $(PROJECT_ROOT)/Packages/YouTubeKit)" ]; then \
 		echo "📥 Cloning YouTubeKit..."; \
 		rm -rf $(PROJECT_ROOT)/Packages/YouTubeKit; \
 		git clone $(REPO_YOUTUBEKIT) $(PROJECT_ROOT)/Packages/YouTubeKit && \
 		cd $(PROJECT_ROOT)/Packages/YouTubeKit && git checkout $(COMMIT_YOUTUBEKIT); \
 	fi
-	@echo "�📦 Resolving Swift Package dependencies..."
+	@echo "📦 Resolving Swift Package dependencies..."
 	xcodebuild -resolvePackageDependencies -project $(XCODE_PROJ)
 
 build-xcode: copy-framework resolve-deps
-	@echo "🏗️ Building Xcode project..."
+	@echo "🏗️ Building Xcode project (Debug)..."
 	xcodebuild -project $(XCODE_PROJ) -scheme $(XCODE_SCHEME) -configuration Debug \
+		-skipPackagePluginValidation -disableAutomaticPackageResolution \
 		SYMROOT=$(XCODE_BUILD_DIR) build
 
+build-release: copy-framework resolve-deps
+	@echo "🏗️ Building Xcode project (Release)..."
+	xcodebuild -project $(XCODE_PROJ) -scheme $(XCODE_SCHEME) -configuration Release \
+		-skipPackagePluginValidation -disableAutomaticPackageResolution \
+		SYMROOT=$(XCODE_BUILD_DIR) build
+
+release-dmg: build-release
+	@echo "📦 Packaging DMG with create-dmg..."
+	@rm -f $(PROJECT_ROOT)/$(APP_NAME).dmg
+	@rm -rf /tmp/livid-dmg-source
+	@mkdir -p /tmp/livid-dmg-source
+	@mkdir -p $(RELEASES_DIR)
+	@cp -R $(RELEASE_APP_PATH) /tmp/livid-dmg-source/
+	@# Use create-dmg for professional styling (Background is 512x512 logical points)
+	@create-dmg \
+		--volname "$(APP_NAME)" \
+		--background "$(DMG_BG)" \
+		--window-pos 200 120 \
+		--window-size 512 512 \
+		--icon-size 96 \
+		--icon "$(APP_NAME).app" 128 330 \
+		--hide-extension "$(APP_NAME).app" \
+		--app-drop-link 384 330 \
+		--format UDZO \
+		"$(PROJECT_ROOT)/$(APP_NAME).dmg" \
+		"/tmp/livid-dmg-source/"
+	@# Extract version for archive
+	@VERSION=$$(defaults read $(RELEASE_APP_PATH)/Contents/Info.plist CFBundleShortVersionString); \
+	ARCH=$$(uname -m); \
+	FINAL_DMG=$(RELEASES_DIR)/livid-macos-$${ARCH}-$${VERSION}.dmg; \
+	cp $(PROJECT_ROOT)/$(APP_NAME).dmg $$FINAL_DMG; \
+	echo "✅ Done! Final DMGs generated:"; \
+	echo "   - Archive: $$FINAL_DMG"; \
+	echo "   - Latest:  $(PROJECT_ROOT)/$(APP_NAME).dmg"
+	@rm -rf /tmp/livid-dmg-source
+
+appcast:
+	@echo "📡 Generating Sparkle appcast..."
+	@mkdir -p $(RELEASES_DIR)
+	@$(GEN_APPCAST) --download-url-prefix https://getlivid.app/releases/ $(RELEASES_DIR)
+	@echo "✅ Appcast updated in $(RELEASES_DIR)/appcast.xml"
+
+release-all: release-dmg appcast
+	@echo "🚀 Full release build & appcast generation completed!"
+
 run: build-xcode
-	@echo "🚀 Launching LiveWallpaperEnabler..."
-	open $(XCODE_BUILD_DIR)/Debug/$(XCODE_SCHEME).app
+	@echo "🚀 Launching Livid..."
+	open $(XCODE_BUILD_DIR)/Debug/$(APP_NAME).app

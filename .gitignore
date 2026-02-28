@@ -45,6 +45,7 @@ DerivedData/
 
 # Build artifacts
 build/
+build_xcode/
 bin/
 obj/
 *.pyc

@@ -24,7 +24,6 @@ struct MediaBrowser<Data, RowContent, GridContent>: View
     @ViewBuilder var gridContent: (Data.Element) -> GridContent
     
     var onAdd: (() -> Void)? = nil
-    var onDelete: ((Data.Element) -> Void)? = nil
     
     // Default grid layout
     private let gridColumns = [GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 20)]
@@ -36,8 +35,7 @@ struct MediaBrowser<Data, RowContent, GridContent>: View
         viewMode: Binding<MediaBrowserViewMode>,
         @ViewBuilder rowContent: @escaping (Data.Element) -> RowContent,
         @ViewBuilder gridContent: @escaping (Data.Element) -> GridContent,
-        onAdd: (() -> Void)? = nil,
-        onDelete: ((Data.Element) -> Void)? = nil
+        onAdd: (() -> Void)? = nil
     ) {
         self.title = title
         self.items = items
@@ -46,7 +44,6 @@ struct MediaBrowser<Data, RowContent, GridContent>: View
         self.rowContent = rowContent
         self.gridContent = gridContent
         self.onAdd = onAdd
-        self.onDelete = onDelete
     }
     
     var body: some View {
@@ -56,7 +53,6 @@ struct MediaBrowser<Data, RowContent, GridContent>: View
                     ForEach(items) { item in
                         rowContent(item)
                             .tag(item.id)
-                            .contextMenu { deleteButton(for: item) }
                     }
                 }
                 .listStyle(.sidebar)
@@ -70,7 +66,6 @@ struct MediaBrowser<Data, RowContent, GridContent>: View
                                     selection = item.id
                                 }
                                 .modifier(GridSelectionModifier(isSelected: selection == item.id))
-                                .contextMenu { deleteButton(for: item) }
                         }
                     }
                     .padding(24)
@@ -93,17 +88,6 @@ struct MediaBrowser<Data, RowContent, GridContent>: View
                         Label("Add Item", systemImage: "plus")
                     }
                 }
-            }
-        }
-    }
-    
-    @ViewBuilder
-    private func deleteButton(for item: Data.Element) -> some View {
-        if let onDelete {
-            Button(role: .destructive) {
-                onDelete(item)
-            } label: {
-                Label("Delete", systemImage: "trash")
             }
         }
     }

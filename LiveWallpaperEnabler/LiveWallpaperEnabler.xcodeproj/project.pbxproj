@@ -46,7 +46,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		0A291C5B2F29066600A8B5B9 /* LiveWallpaperEnabler.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LiveWallpaperEnabler.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0A291C5B2F29066600A8B5B9 /* Livid.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Livid.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0AAFFB6B2F2B57A8007DD74E /* com.mitocondria.LiveWallpaperHelper.app */ = {isa = PBXFileReference; explicitFileType = "wrapper.xpc-service"; includeInIndex = 0; path = com.mitocondria.LiveWallpaperHelper.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -160,7 +160,7 @@
 		0A291C5C2F29066600A8B5B9 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				0A291C5B2F29066600A8B5B9 /* LiveWallpaperEnabler.app */,
+				0A291C5B2F29066600A8B5B9 /* Livid.app */,
 				0AAFFB6B2F2B57A8007DD74E /* com.mitocondria.LiveWallpaperHelper.app */,
 			);
 			name = Products;
@@ -201,7 +201,7 @@
 				0A67C3692F5200280087C7FB /* Sparkle */,
 			);
 			productName = LiveWallpaperEnabler;
-			productReference = 0A291C5B2F29066600A8B5B9 /* LiveWallpaperEnabler.app */;
+			productReference = 0A291C5B2F29066600A8B5B9 /* Livid.app */;
 			productType = "com.apple.product-type.application";
 		};
 		0AAFFB6A2F2B57A8007DD74E /* LiveWallpaperHelper */ = {
@@ -465,7 +465,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2026.01.29;
+				MARKETING_VERSION = 2026.02.28;
 				"OTHER_SWIFT_FLAGS[arch=*]" = "-D DIRECT_DISTRIBUTION";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mitocondria.LiveWallpaperEnabler;
 				PRODUCT_NAME = Livid;
@@ -485,12 +485,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = LiveWallpaperEnabler/LiveWallpaperEnabler.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = "LiveWallpaperEnabler/LiveWallpaperEnabler-Direct.entitlements";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = KUJY2K5BCW;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
 				ENABLE_PREVIEWS = YES;
@@ -511,7 +512,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2026.01.29;
+				MARKETING_VERSION = 2026.02.28;
 				"OTHER_SWIFT_FLAGS[arch=*]" = "-D DIRECT_DISTRIBUTION";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mitocondria.LiveWallpaperEnabler;
 				PRODUCT_NAME = Livid;

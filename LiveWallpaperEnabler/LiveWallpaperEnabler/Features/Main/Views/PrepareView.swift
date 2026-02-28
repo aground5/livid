@@ -29,10 +29,7 @@ struct PrepareView: View {
                         isDownloading: viewModel.downloadStates[ingredient.id] != nil
                     )
                 },
-                onAdd: nil,
-                onDelete: { (ingredient: MediaIngredient) in
-                    viewModel.removeIngredient(ingredient)
-                }
+                onAdd: nil
             )
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
@@ -215,6 +212,14 @@ private struct IngredientRowView: View {
         .padding(.vertical, 4)
         .opacity(ingredient.isOffline ? 0.6 : 1.0)
         .grayscale(ingredient.isOffline ? 1.0 : 0.0)
+        .contentShape(Rectangle())
+        .contextMenu {
+            Button(role: .destructive) {
+                viewModel.removeIngredient(ingredient)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
     }
     
     var iconName: String {
@@ -311,6 +316,14 @@ private struct IngredientGridItem: View {
         }
         .opacity(ingredient.isOffline ? 0.7 : 1.0)
         .grayscale(ingredient.isOffline ? 1.0 : 0.0)
+        .contentShape(Rectangle())
+        .contextMenu {
+            Button(role: .destructive) {
+                viewModel.removeIngredient(ingredient)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
     }
     
     var iconName: String {
