@@ -364,6 +364,9 @@ build-release: copy-framework resolve-deps
 		SYMROOT=$(XCODE_BUILD_DIR) build
 
 release-dmg: build-release
+	@echo "📦 Bundling dynamic libraries with dylibbundler..."
+	@mkdir -p $(RELEASE_APP_PATH)/Contents/Frameworks
+	@dylibbundler -od -b -x "$(RELEASE_APP_PATH)/Contents/MacOS/$(APP_NAME)" -d "$(RELEASE_APP_PATH)/Contents/Frameworks/" -p @executable_path/../Frameworks/
 	@echo "📦 Packaging DMG with create-dmg..."
 	@rm -f $(PROJECT_ROOT)/$(APP_NAME).dmg
 	@rm -rf /tmp/livid-dmg-source
