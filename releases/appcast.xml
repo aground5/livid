@@ -9,7 +9,7 @@
             <sparkle:shortVersionString>2026.02.28</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://getlivid.app/releases/livid-macos-arm64-2026.02.28.dmg" length="56594104" type="application/octet-stream" sparkle:edSignature="322vi1VPobJ9kWWLF08usZQc7xNrGPbttX9yffiX8m4MI/Tq6CtXaV5dSmlZ7Olw6uMElwY3sDQl2X9lCTAYCw=="/>
+            <enclosure url="https://getlivid.app/releases/livid-macos-arm64-2026.02.28.dmg" length="56593175" type="application/octet-stream" sparkle:edSignature="Gddszrq9ebMiStV+Xi0aFAe7RNdLNWqm7N6bBdpACc3n2r6rftxow6sim5xBZBzh3ZtgBWT2n+6D4wztpnjuAg=="/>
         </item>
     </channel>
 </rss>

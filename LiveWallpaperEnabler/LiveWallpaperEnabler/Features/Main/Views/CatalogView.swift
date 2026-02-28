@@ -60,10 +60,14 @@ struct CatalogView: View {
                 ZStack(alignment: .bottomTrailing) {
                     Group {
                         if let asset = currentWallpaper {
-                            AsyncImage(url: URL(string: asset.previewImage)) { image in
-                                image.resizable().aspectRatio(contentMode: .fill)
-                            } placeholder: {
+                            let thumbURL = aerialService.systemThumbnailURL(for: asset.id)
+                            if let image = NSImage(contentsOf: thumbURL) {
+                                Image(nsImage: image)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                            } else {
                                 Color.gray.opacity(0.1)
+                                    .overlay(Image(systemName: "photo").foregroundStyle(.secondary))
                             }
                         } else {
                             Color.gray.opacity(0.2)
@@ -260,27 +264,16 @@ struct AssetThumbnail: View {
         
         VStack(alignment: .center, spacing: 8) {
             ZStack(alignment: .bottomLeading) {
-                if isCustom {
-                    // Local Thumbnail
-                    let thumbURL = aerialService.systemThumbnailURL(for: asset.id)
-                    if let image = NSImage(contentsOf: thumbURL) {
-                        Image(nsImage: image)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 170, height: 100)
-                    } else {
-                        Rectangle().fill(Color.gray.opacity(0.2))
-                            .frame(width: 170, height: 100)
-                    }
+                let thumbURL = aerialService.systemThumbnailURL(for: asset.id)
+                if let image = NSImage(contentsOf: thumbURL) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 170, height: 100)
                 } else {
-                    AsyncImage(url: URL(string: asset.previewImage)) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle().fill(Color.gray.opacity(0.2))
-                    }
-                    .frame(width: 170, height: 100)
+                    Rectangle().fill(Color.gray.opacity(0.2))
+                        .overlay(Image(systemName: "photo").font(.caption).foregroundStyle(.secondary))
+                        .frame(width: 170, height: 100)
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 10))
