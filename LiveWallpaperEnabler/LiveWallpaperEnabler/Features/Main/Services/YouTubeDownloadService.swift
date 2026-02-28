@@ -40,24 +40,36 @@ class YouTubeDownloadService {
                     throw YTDLPError.parsingFailed 
                 }
                 
-                // 1. Download via YTDLP
-                await updateState(id, status: "Downloading...", progress: 0.1)
+                await updateState(id, status: "Fetching Stream Info...", progress: 0.05)
                 
-                let downloadedFile = try await HelperServiceConnection.shared.download(
-                    url: webpageURL,
-                    formatID: formatString,
-                    outputDirectory: downloadFolder
-                ) { progress, status in
-                    // Update progress if supported
+                let (_, streams) = try await YouTubeDownloader.shared.fetchMetadata(url: webpageURL)
+                
+                // Find best stream matching resolution
+                guard let stream = streams.first(where: { $0.resolution <= resolution }) ?? streams.first else {
+                    throw YouTubeDownloadError.noStreamsFound
                 }
                 
+                await updateState(id, status: "Downloading...", progress: 0.1)
+                
+                let fileURL = downloadFolder.appendingPathComponent("\(UUID().uuidString).\(stream.fileExtension)")
+                try await downloadFileWithProgress(url: stream.url, destination: fileURL, id: id)
+                
+                let downloadedFile = fileURL
                 try Task.checkCancellation()
                 
-                // 2. Pre-process (Convert to MOV if WebM/MKV)
+                // 2a. Analyze ORIGINAL file metadata BEFORE preview conversion
+                //     This preserves the true source specs (e.g., 4K) even if preview is FHD.
+                await updateState(id, status: "Analyzing source...", progress: 0.55)
+                let originalMeta = try? await VideoMetadataAnalyzer.analyze(url: downloadedFile)
+                
+                // 2b. Pre-process (Convert to MOV always)
                 var finalPreviewURL = downloadedFile
                 let ext = downloadedFile.pathExtension.lowercased()
                 
-                if ext == "webm" || ext == "mkv" {
+                // YouTube DASH MP4s often have malformed timescales/sidx boxes causing AVFoundation
+                // to report exactly double their actual duration. Passing them through the native
+                // AVAssetReader/Writer or FFmpeg pipeline normalizes the metadata and duration.
+                if true {
                     await updateState(id, status: "Creating Preview...", progress: 0.6)
                     
                     let previewFilename = downloadedFile.deletingPathExtension().lastPathComponent + "_preview.mov"
@@ -65,7 +77,8 @@ class YouTubeDownloadService {
                     
                     try await VideoConverterService.shared.convertToNativelyPlayable(
                         inputURL: downloadedFile,
-                        outputURL: previewURL
+                        outputURL: previewURL,
+                        forceFFmpeg: true
                     ) { progress in
                         Task { @MainActor in
                             self.downloadStates[id]?.progress = 0.6 + (progress * 0.3)
@@ -79,7 +92,15 @@ class YouTubeDownloadService {
                 // 3. Success - Update Ingredient & Store
                 _ = await MainActor.run {
                     if var currentIngredient = self.store.ingredients.first(where: { $0.id == id }) {
-                        currentIngredient.source = .youtube(metadata: metadata, localURL: finalPreviewURL)
+                        // Preserve existing streams
+                        let existingStreams: [YouTubeStreamOption]
+                        if case .youtube(_, _, let streams) = currentIngredient.source {
+                            existingStreams = streams
+                        } else {
+                            existingStreams = []
+                        }
+                        currentIngredient.source = .youtube(metadata: metadata, localURL: finalPreviewURL, streams: existingStreams)
+                        currentIngredient.originalMetadata = originalMeta
                         self.store.update(currentIngredient)
                     }
                     
@@ -101,11 +122,49 @@ class YouTubeDownloadService {
             } catch is CancellationError {
                 _ = await MainActor.run { self.downloadStates.removeValue(forKey: id) }
             } catch {
-                await updateState(id, status: "Failed", error: error.localizedDescription)
+                let userMessage = Self.friendlyErrorMessage(for: error)
+                await MainActor.run {
+                    self.downloadStates[id] = DownloadState(
+                        progress: 0,
+                        status: userMessage,
+                        isDownloading: false,
+                        error: error.localizedDescription
+                    )
+                }
+                
+                // Auto-cleanup failed state after 5 seconds
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                _ = await MainActor.run {
+                    self.downloadStates.removeValue(forKey: id)
+                }
             }
         }
         
         downloadTasks[id] = task
+    }
+    
+    private static func friendlyErrorMessage(for error: Error) -> String {
+        let nsError = error as NSError
+        
+        switch nsError.code {
+        case NSURLErrorTimedOut:
+            return "Download timed out. Please try again."
+        case NSURLErrorNotConnectedToInternet:
+            return "No internet connection."
+        case NSURLErrorNetworkConnectionLost:
+            return "Connection lost during download."
+        case NSURLErrorCancelled:
+            return "Download cancelled."
+        case NSURLErrorCannotFindHost, NSURLErrorCannotConnectToHost:
+            return "Server unreachable. Try again later."
+        case NSURLErrorSecureConnectionFailed:
+            return "Secure connection failed."
+        default:
+            if nsError.domain == NSURLErrorDomain {
+                return "Network error. Please try again."
+            }
+            return "Download failed: \(error.localizedDescription)"
+        }
     }
     
     func cancelDownload(for id: UUID) {
@@ -125,6 +184,49 @@ class YouTubeDownloadService {
                 }
                 self.downloadStates[id] = state
             }
+        }
+    }
+    
+    private func downloadFileWithProgress(url: URL, destination: URL, id: UUID) async throws {
+        let (asyncBytes, response) = try await URLSession.shared.bytes(from: url)
+        let expectedLength = response.expectedContentLength
+        
+        guard let outputStream = OutputStream(url: destination, append: false) else {
+            throw NSLocalizedString("Unable to create output stream.", comment: "") as! Error
+        }
+        outputStream.open()
+        
+        defer {
+            outputStream.close()
+        }
+        
+        var downloadedBytes: Int64 = 0
+        var buffer = [UInt8]()
+        buffer.reserveCapacity(65536)
+        
+        var nextProgressUpdate: Int64 = 1024 * 512 // Every 512KB to prevent too many re-renders
+        
+        for try await byte in asyncBytes {
+            buffer.append(byte)
+            if buffer.count >= 65536 {
+                let written = outputStream.write(buffer, maxLength: buffer.count)
+                if written < 0 { throw outputStream.streamError ?? YTDLPError.executionFailed(code: -1, message: "Stream write failed") }
+                downloadedBytes += Int64(buffer.count)
+                buffer.removeAll(keepingCapacity: true)
+                
+                try Task.checkCancellation()
+                
+                if downloadedBytes >= nextProgressUpdate {
+                    let progress = Double(downloadedBytes) / Double(expectedLength)
+                    await updateState(id, status: "Downloading (\(Int(progress * 100))%)", progress: 0.1 + (progress * 0.5))
+                    nextProgressUpdate += 1024 * 512
+                }
+            }
+        }
+        
+        if !buffer.isEmpty {
+            let written = outputStream.write(buffer, maxLength: buffer.count)
+            if written < 0 { throw outputStream.streamError ?? YTDLPError.executionFailed(code: -1, message: "Stream write failed") }
         }
     }
 }

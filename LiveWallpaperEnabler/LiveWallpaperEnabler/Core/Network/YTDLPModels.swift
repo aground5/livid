@@ -59,8 +59,20 @@ public struct YTDLPMetadata: Codable, Sendable {
     public let title: String
     public let uploader: String?
     public let duration: Double?
-    public let formats: [YTDLPFormat]
-    public let webpage_url: String
+    public let formats: [YTDLPFormat]?
+    public let webpage_url: String 
     public let thumbnail: String?
     public let description: String?
+
+    // Add initializer for YouTubeKit
+    public init(id: String, title: String, description: String?, webpage_url: String, thumbnail: String?) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.webpage_url = webpage_url
+        self.thumbnail = thumbnail
+        self.uploader = nil
+        self.duration = nil
+        self.formats = nil
+    }
 }

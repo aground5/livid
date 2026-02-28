@@ -19,9 +19,9 @@ extension MainViewModel {
             AssetImportService.shared.state.error = nil 
             
             do {
-                print("🚀 [MainViewModel+YouTube] Requesting metadata from Helper...")
-                let metadata = try await HelperServiceConnection.shared.fetchMetadata(url: urlObj)
-                print("🚀 [MainViewModel+YouTube] Received metadata: \(metadata.title)")
+                print("🚀 [MainViewModel+YouTube] Requesting metadata directly...")
+                let (metadata, streams) = try await YouTubeDownloader.shared.fetchMetadata(url: urlObj)
+                print("🚀 [MainViewModel+YouTube] Received metadata: \(metadata.title), \(streams.count) streams")
                 
                 AssetImportService.shared.state.isImporting = false
                 AssetImportService.shared.state.progress = 1.0
@@ -29,7 +29,7 @@ extension MainViewModel {
                 let ingredient = MediaIngredient(
                     id: UUID(),
                     name: metadata.title,
-                    source: .youtube(metadata: metadata, localURL: nil),
+                    source: .youtube(metadata: metadata, localURL: nil, streams: streams),
                     addedDate: Date()
                 )
                 IngredientStore.shared.add(ingredient)

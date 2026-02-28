@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0A1BD1372F3A34EF005AA44A /* WebMSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 0A1BD1362F3A34EF005AA44A /* WebMSupport */; };
+		0A67C36A2F5200280087C7FB /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 0A67C3692F5200280087C7FB /* Sparkle */; };
 		0A8CFC452F336FC2006D784F /* YouTubeKit in Frameworks */ = {isa = PBXBuildFile; productRef = 0A8CFC442F336FC2006D784F /* YouTubeKit */; };
 		0A8CFC5F2F34BAB7006D784F /* Hummingbird in Frameworks */ = {isa = PBXBuildFile; productRef = 0A8CFC5E2F34BAB7006D784F /* Hummingbird */; };
 		0A8CFC622F34BAF8006D784F /* HummingbirdCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0A8CFC612F34BAF8006D784F /* HummingbirdCore */; };
@@ -50,6 +51,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		0A67C36C2F5200BF0087C7FB /* Exceptions for "LiveWallpaperEnabler" folder in "LiveWallpaperEnabler" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 0A291C5A2F29066600A8B5B9 /* LiveWallpaperEnabler */;
+		};
 		0AAFFB772F2B57A8007DD74E /* Exceptions for "LiveWallpaperHelper" folder in "LiveWallpaperHelper" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -94,6 +102,7 @@
 		0A291C5D2F29066600A8B5B9 /* LiveWallpaperEnabler */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
+				0A67C36C2F5200BF0087C7FB /* Exceptions for "LiveWallpaperEnabler" folder in "LiveWallpaperEnabler" target */,
 				0AAFFB7E2F2BB081007DD74E /* Exceptions for "LiveWallpaperEnabler" folder in "LiveWallpaperHelper" target */,
 			);
 			path = LiveWallpaperEnabler;
@@ -115,6 +124,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0AAFFB512F292C5E007DD74E /* WebMSupport in Frameworks */,
+				0A67C36A2F5200280087C7FB /* Sparkle in Frameworks */,
 				0A1BD1372F3A34EF005AA44A /* WebMSupport in Frameworks */,
 				0AA556D12F3A354D0072AB25 /* YouTubeKit in Frameworks */,
 			);
@@ -188,6 +198,7 @@
 				0AAFFB502F292C5E007DD74E /* WebMSupport */,
 				0A1BD1362F3A34EF005AA44A /* WebMSupport */,
 				0AA556D02F3A354D0072AB25 /* YouTubeKit */,
+				0A67C3692F5200280087C7FB /* Sparkle */,
 			);
 			productName = LiveWallpaperEnabler;
 			productReference = 0A291C5B2F29066600A8B5B9 /* LiveWallpaperEnabler.app */;
@@ -253,6 +264,7 @@
 				0A8CFC5D2F34BAB7006D784F /* XCRemoteSwiftPackageReference "hummingbird" */,
 				0A1BD1352F3A34EE005AA44A /* XCLocalSwiftPackageReference "../Packages/WebMSupport" */,
 				0AA556CF2F3A354D0072AB25 /* XCLocalSwiftPackageReference "../Packages/YouTubeKit" */,
+				0A67C3682F5200280087C7FB /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0A291C5C2F29066600A8B5B9 /* Products */;
@@ -445,6 +457,7 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LiveWallpaperEnabler/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -489,6 +502,7 @@
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LiveWallpaperEnabler/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -614,6 +628,14 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		0A67C3682F5200280087C7FB /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.0;
+			};
+		};
 		0A8CFC5D2F34BAB7006D784F /* XCRemoteSwiftPackageReference "hummingbird" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/hummingbird-project/hummingbird.git";
@@ -628,6 +650,11 @@
 		0A1BD1362F3A34EF005AA44A /* WebMSupport */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = WebMSupport;
+		};
+		0A67C3692F5200280087C7FB /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0A67C3682F5200280087C7FB /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 		0A8CFC442F336FC2006D784F /* YouTubeKit */ = {
 			isa = XCSwiftPackageProductDependency;

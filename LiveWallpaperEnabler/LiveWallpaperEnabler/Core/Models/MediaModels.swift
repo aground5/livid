@@ -3,12 +3,12 @@ import CoreMedia
 
 enum MediaSource: Codable, Sendable {
     case local(url: URL)
-    case youtube(metadata: YTDLPMetadata, localURL: URL?)
+    case youtube(metadata: YTDLPMetadata, localURL: URL?, streams: [YouTubeStreamOption])
     
     var localURL: URL? {
         switch self {
         case .local(let url): return url
-        case .youtube(_, let url): return url
+        case .youtube(_, let url, _): return url
         }
     }
 }
@@ -19,6 +19,7 @@ struct MediaIngredient: Identifiable, Codable, Equatable {
     var source: MediaSource
     var addedDate: Date
     var thumbnailName: String?
+    var originalMetadata: MediaMetadata?  // Original source specs before preview conversion
     
     static func == (lhs: MediaIngredient, rhs: MediaIngredient) -> Bool {
         lhs.id == rhs.id
@@ -146,7 +147,7 @@ struct DownloadState: Sendable {
 // MARK: - Extensions
 extension MediaSource {
     var youtubeMetadata: YTDLPMetadata? {
-        if case .youtube(let metadata, _) = self {
+        if case .youtube(let metadata, _, _) = self {
             return metadata
         }
         return nil
@@ -160,14 +161,16 @@ extension MediaSource {
 
 extension MediaIngredient {
     var isRemoteYouTube: Bool {
-        if case .youtube(_, let localURL) = source {
-            return localURL == nil
+        if case .youtube(_, let localURL, _) = source {
+            guard let url = localURL else { return true }
+            return !FileManager.default.fileExists(atPath: url.path)
         }
         return false
     }
     
     /// Returns true if the associated local file is missing from disk.
     var isOffline: Bool {
+        if source.isYouTube { return false }
         guard let url = source.localURL else { return false }
         return !FileManager.default.fileExists(atPath: url.path)
     }

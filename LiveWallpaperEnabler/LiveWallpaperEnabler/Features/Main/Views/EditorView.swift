@@ -34,6 +34,18 @@ struct EditorView: View {
                     }
                     .ignoresSafeArea(edges: [.top, .bottom])
                     
+                    // 2. Info Widget (Top Left)
+                    if showControls {
+                        VStack {
+                            HStack {
+                                activeIngredientInfoWidget
+                                    .transition(.move(edge: .top).combined(with: .opacity))
+                                Spacer()
+                            }
+                            Spacer()
+                        }
+                        .padding(24)
+                    }
                     
                     // 3. Floating Controls Overlay (Respects All Safe Areas)
                     VStack {
@@ -70,6 +82,12 @@ struct EditorView: View {
                 .onKeyDown(.l) {
                     viewModel.isLooping.toggle()
                 }
+                .onAppear {
+                    KeyboardManager.shared.isActive = true
+                }
+                .onDisappear {
+                    KeyboardManager.shared.isActive = false
+                }
             } else {
                 PlaceholderView(
                     icon: "scissors",
@@ -80,6 +98,120 @@ struct EditorView: View {
                 )
             }
         }
+    }
+    
+    // MARK: - Subviews
+    
+    private var activeIngredientInfoWidget: some View {
+        Group {
+            if let active = viewModel.activeIngredient {
+                HStack(spacing: 12) {
+                    // Source Icon
+                    ZStack {
+                        Circle()
+                            .fill(Color.white.opacity(0.1))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: active.source.isYouTube ? "play.rectangle.fill" : "film.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(.white)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(active.name)
+                            .font(.system(size: 13, weight: .semibold))
+                            .lineLimit(1)
+                            .foregroundColor(.white)
+                        
+                        // Original Source Row (if different from preview)
+                        if let original = active.originalMetadata {
+                            let preview = viewModel.sourceMetadata
+                            let isDifferent = preview != nil && (original.width != preview!.width || original.height != preview!.height)
+                            
+                            if isDifferent {
+                                // Show both: original → preview
+                                HStack(spacing: 5) {
+                                    Text("SRC")
+                                        .font(.system(size: 8, weight: .black))
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 1)
+                                        .background(Color.orange.opacity(0.6))
+                                        .cornerRadius(3)
+                                    
+                                    Text(original.resolutionLabel)
+                                        .font(.system(size: 10, weight: .bold))
+                                    Text("\(original.width)×\(original.height)")
+                                    Text("•")
+                                    Text("\(Int(original.fps)) fps")
+                                    Text("•")
+                                    Text(original.codec.uppercased())
+                                }
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.orange.opacity(0.9))
+                                
+                                HStack(spacing: 5) {
+                                    Text("EDIT")
+                                        .font(.system(size: 8, weight: .black))
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 1)
+                                        .background(Color.white.opacity(0.15))
+                                        .cornerRadius(3)
+                                    
+                                    Text(preview!.resolutionLabel)
+                                        .font(.system(size: 10, weight: .bold))
+                                    Text("\(preview!.width)×\(preview!.height)")
+                                    Text("•")
+                                    Text("\(Int(preview!.fps)) fps")
+                                    Text("•")
+                                    Text(preview!.codec.uppercased())
+                                }
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.white.opacity(0.5))
+                            } else {
+                                // Same resolution — show single row
+                                metadataRow(for: original)
+                            }
+                        } else if let preview = viewModel.sourceMetadata {
+                            metadataRow(for: preview)
+                        } else {
+                            Text("Loading metadata...")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.white.opacity(0.5))
+                        }
+                    }
+                    .frame(maxWidth: 360, alignment: .leading)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                    }
+                )
+                .shadow(color: .black.opacity(0.3), radius: 10, y: 5)
+            }
+        }
+    }
+    
+    private func metadataRow(for metadata: MediaMetadata) -> some View {
+        HStack(spacing: 6) {
+            Text(metadata.resolutionLabel)
+                .font(.system(size: 10, weight: .bold))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.white.opacity(0.15))
+                .cornerRadius(4)
+            
+            Text("\(metadata.width)×\(metadata.height)")
+            Text("•")
+            Text("\(Int(metadata.fps)) fps")
+            Text("•")
+            Text(metadata.codec.uppercased())
+        }
+        .font(.system(size: 11, weight: .medium))
+        .foregroundColor(.white.opacity(0.7))
     }
     
     private var floatingControlPanel: some View {

@@ -1,5 +1,6 @@
 import Foundation
 import os
+import YouTubeKit
 
 enum YouTubeDownloadError: Error {
     case invalidURL
@@ -42,96 +43,56 @@ class YouTubeDownloader {
     
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "LiveWallpaperEnabler", category: "YouTubeDownloader")
     
-    func fetchMetadata(url: URL) async throws -> (YouTubeMetadataDTO, [YouTubeStreamOption]) {
-        let meta = try await HelperServiceConnection.shared.fetchMetadata(url: url)
+    func fetchMetadata(url: URL) async throws -> (YTDLPMetadata, [YouTubeStreamOption]) {
+        let video = YouTube(url: url)
         
-        let dto = YouTubeMetadataDTO(
-            title: meta.title,
-            description: meta.description ?? "", 
-            thumbnailURL: URL(string: meta.thumbnail ?? "")
+        // Fetch metadata and streams
+        let metaOptional = try await video.metadata
+        let streamsResult = try await video.streams
+        
+        let title = metaOptional?.title ?? "Unknown"
+        let description = metaOptional?.description ?? ""
+        let thumbnail = metaOptional?.thumbnail?.url
+        
+        let dto = YTDLPMetadata(
+            id: url.absoluteString,
+            title: title,
+            description: description, 
+            webpage_url: url.absoluteString,
+            thumbnail: thumbnail?.absoluteString
         )
         
-        // Filter and Map
-        // We group by resolution and extension, but keep the one with the highest bitrate if multiple exist
-        let uniqueFormats = Dictionary(grouping: meta.formats, by: { "\($0.height ?? 0)-\($0.ext)-\($0.vcodec ?? "")" })
-            .compactMap { $0.value.max(by: { ($0.bitrate) < ($1.bitrate) }) }
-        
-        let streams = uniqueFormats
-            .filter { ($0.height ?? 0) >= 360 } // Filter low quality
-            .map { f in
-                YouTubeStreamOption(
-                    id: f.format_id,
-                    resolution: f.height ?? 0,
-                    fileExtension: f.ext,
-                    url: url,
-                    hasAudio: f.hasAudio,
-                    isNativelyPlayable: f.isNativelyPlayable,
-                    codec: f.vcodec ?? "unknown",
-                    bitrate: f.bitrate,
-                    isHDR: f.isHDR,
-                    isVP9: f.isVP9,
-                    estimatedSpeed: nil
-                )
-            }
-            .sorted { 
-                if $0.resolution != $1.resolution {
-                    return $0.resolution > $1.resolution
-                }
-                return ($0.bitrate ?? 0) > ($1.bitrate ?? 0)
-            }
+        // Map streams to options
+        let streamOptions = streamsResult.compactMap { stream -> YouTubeStreamOption? in
+            guard let resolution = stream.videoResolution else { return nil } // Exclude audio-only for wallpaper
+            guard stream.includesVideoTrack else { return nil }
             
-        return (dto, streams)
-    }
-    
-    func download(streamOption: YouTubeStreamOption, progressHandler: @escaping (DownloadProgress) -> Void) async throws -> URL {
-        let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("LiveWallpaperDownloads")
-        
-        return try await HelperServiceConnection.shared.download(
-            url: streamOption.url,
-            formatID: streamOption.id,
-            outputDirectory: outputDir
-        ) { progress, statusLine in
+            let codec = stream.videoCodec.map { String(describing: $0) } ?? "unknown"
             
-            let speed = self.parseSpeed(from: statusLine)
-            
-            let info = DownloadProgress(
-                progress: progress,
-                completedBytes: 0,
-                totalBytes: 0, 
-                speedBytesPerSecond: speed
+            return YouTubeStreamOption(
+                id: UUID().uuidString,
+                resolution: resolution,
+                fileExtension: stream.fileExtension.rawValue,
+                url: stream.url,
+                hasAudio: stream.includesAudioTrack,
+                isNativelyPlayable: stream.isNativelyPlayable,
+                codec: codec,
+                bitrate: Double(stream.averageBitrate ?? stream.bitrate ?? 0),
+                isHDR: codec.lowercased().contains("hdr"), // naive fallback
+                isVP9: codec.lowercased().contains("vp9"),
+                estimatedSpeed: nil
             )
-            progressHandler(info)
-        }
-    }
-    
-    private func parseSpeed(from line: String) -> Double {
-        // Example: "[download]  45.0% of 10.00MiB at 2.00MiB/s ETA 00:05"
-        if let range = line.range(of: "at ") {
-            let suffix = line[range.upperBound...]
-            let components = suffix.split(separator: " ")
-            if let speedStr = components.first {
-                return self.parseSizeString(String(speedStr))
+        }.sorted { 
+            if $0.resolution != $1.resolution {
+                return $0.resolution > $1.resolution
             }
+            return ($0.bitrate ?? 0) > ($1.bitrate ?? 0)
         }
-        return 0
-    }
-    
-    private func parseSizeString(_ str: String) -> Double {
-        let raw = str.replacingOccurrences(of: "/s", with: "")
-        let unitMultipliers: [String: Double] = ["KiB": 1024, "MiB": 1024*1024, "GiB": 1024*1024*1024, "kB": 1000, "MB": 1000000]
-        
-        for (unit, mult) in unitMultipliers {
-            if raw.contains(unit) {
-                let valStr = raw.replacingOccurrences(of: unit, with: "")
-                if let val = Double(valStr) {
-                    return val * mult
-                }
-            }
-        }
-        return 0
+            
+        return (dto, streamOptions)
     }
     
     func benchmarkStreams(_ streams: [YouTubeStreamOption]) async -> [YouTubeStreamOption] {
-        return streams // No-op, yt-dlp handles optimization
+        return streams // No-op
     }
 }

@@ -31,6 +31,11 @@ struct MainView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(minWidth: 700, minHeight: 500)
+        .onChange(of: viewModel.selectedVideoURL) { oldUrl, newUrl in
+            if let url = newUrl, url != oldUrl {
+                viewModel.loadVideoMetadata(url: url)
+            }
+        }
     }
     
     // MARK: - Content Views

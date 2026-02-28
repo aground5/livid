@@ -56,6 +56,7 @@ struct MediaBrowser<Data, RowContent, GridContent>: View
                     ForEach(items) { item in
                         rowContent(item)
                             .tag(item.id)
+                            .contextMenu { deleteButton(for: item) }
                     }
                 }
                 .listStyle(.sidebar)
@@ -69,6 +70,7 @@ struct MediaBrowser<Data, RowContent, GridContent>: View
                                     selection = item.id
                                 }
                                 .modifier(GridSelectionModifier(isSelected: selection == item.id))
+                                .contextMenu { deleteButton(for: item) }
                         }
                     }
                     .padding(24)

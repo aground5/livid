@@ -31,8 +31,12 @@ class KeyboardManager {
     }
     
     private(set) var pressedKeys: Set<Key> = []
-    private(set) var lastEvent: KeyEvent?
     private(set) var modifiers: NSEvent.ModifierFlags = []
+    private(set) var lastEvent: KeyEvent?
+    
+    /// When false, KeyboardManager will ignore and pass through all events.
+    /// Set this to true only when the target view (e.g., Editor) is focused.
+    var isActive: Bool = false
     
     private var monitor: Any?
     
@@ -48,6 +52,9 @@ class KeyboardManager {
                 self.modifiers = event.modifierFlags
                 return event
             }
+            
+            // If not active, pass through everything
+            guard self.isActive else { return event }
             
             if let key = Key(rawValue: event.keyCode) {
                 let isRepeat = event.isARepeat

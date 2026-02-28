@@ -29,9 +29,10 @@ class VideoConverterService {
     
     /// Converts a video file to a macOS-compatible MOV (H.264) using native AVFoundation/VideoToolbox.
     /// Used for fast preparation/preview. Supports Trimming.
-    func convertToNativelyPlayable(inputURL: URL, outputURL: URL, timeRange: CMTimeRange? = nil, progressHandler: ((Double) -> Void)? = nil) async throws {
-        if inputURL.pathExtension.lowercased() == "webm" {
-            // Convert WebM to native MOV, applying trimming if timeRange is provided.
+    func convertToNativelyPlayable(inputURL: URL, outputURL: URL, timeRange: CMTimeRange? = nil, forceFFmpeg: Bool = false, progressHandler: ((Double) -> Void)? = nil) async throws {
+        let ext = inputURL.pathExtension.lowercased()
+        if ext == "webm" || ext == "mkv" || forceFFmpeg {
+            // Convert WebM/MKV or explicitly force FFmpeg to native MOV, applying trimming if timeRange is provided.
             try await prepareNativelyPlayableWithFFmpeg(inputURL: inputURL, outputURL: outputURL, timeRange: timeRange, progressHandler: progressHandler)
             return
         }

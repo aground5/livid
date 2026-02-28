@@ -170,7 +170,6 @@ class MainViewModel {
                     if let last = IngredientStore.shared.ingredients.last {
                         await MainActor.run {
                             self?.selectedIngredientID = last.id
-                            self?.loadVideoMetadata(url: last.source.localURL!)
                         }
                     }
                 }
@@ -191,7 +190,7 @@ class MainViewModel {
     }
     
     func selectIngredient(_ ingredient: MediaIngredient) {
-        // If it's offline, we don't allow it to be the "active" selection for editing
+        // If it's a local offline file, we don't allow it to be the "active" selection
         if ingredient.isOffline {
             Logger.video.warning("Ingredient '\(ingredient.name)' is offline. Deselecting.")
             selectedIngredientID = nil
@@ -200,10 +199,6 @@ class MainViewModel {
         }
         
         selectedIngredientID = ingredient.id
-        
-        if let url = ingredient.source.localURL {
-            loadVideoMetadata(url: url)
-        }
     }
     
     // MARK: - Video Metadata & Thumbnails

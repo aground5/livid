@@ -24,24 +24,28 @@ class AssetImportService {
         }
         
         do {
-            // 1. Determine if conversion is needed
+            // 1. Analyze ORIGINAL file metadata BEFORE any conversion
+            let originalMeta = try? await VideoMetadataAnalyzer.analyze(url: url)
+            
+            // 2. Determine if conversion is needed
             let processedURL = try await ensureNativelyPlayable(url)
             
-            // 2. Extract Metadata & Create Ingredient
+            // 3. Extract Metadata & Create Ingredient
             let id = UUID()
             let name = url.lastPathComponent
             var ingredient = MediaIngredient(
                 id: id,
                 name: name,
                 source: .local(url: processedURL),
-                addedDate: Date()
+                addedDate: Date(),
+                originalMetadata: originalMeta
             )
             
-            // 3. Generate Initial Thumbnail
+            // 4. Generate Initial Thumbnail
             await MainActor.run { self.state.status = "Generating preview..." }
             try await generateAndSaveThumbnail(for: id, url: processedURL, ingredient: &ingredient)
             
-            // 4. Finalize in Store
+            // 5. Finalize in Store
             await MainActor.run {
                 self.store.add(ingredient)
                 self.state.isImporting = false

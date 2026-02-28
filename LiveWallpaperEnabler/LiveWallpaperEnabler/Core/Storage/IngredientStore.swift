@@ -10,11 +10,75 @@ class IngredientStore {
     var ingredients: [MediaIngredient] = [] {
         didSet {
             saveIngredients()
+            updateFileWatchers()
         }
     }
     
     init() {
         loadIngredients()
+        initializeFileWatchdog()
+    }
+    
+    @ObservationIgnored
+    private var fileWatchers: [String: DispatchSourceFileSystemObject] = [:]
+    @ObservationIgnored
+    private var previousExistenceStatus: [UUID: Bool] = [:]
+    
+    private func initializeFileWatchdog() {
+        for ingredient in ingredients {
+            let exists = !ingredient.isOffline && !ingredient.isRemoteYouTube
+            previousExistenceStatus[ingredient.id] = exists
+        }
+        updateFileWatchers()
+    }
+    
+    private func updateFileWatchers() {
+        var directoriesToWatch = Set<String>()
+        for ingredient in ingredients {
+            if let url = ingredient.source.localURL {
+                let parentPath = url.deletingLastPathComponent().path
+                directoriesToWatch.insert(parentPath)
+            }
+        }
+        
+        // Remove old watchers
+        for path in fileWatchers.keys {
+            if !directoriesToWatch.contains(path) {
+                fileWatchers[path]?.cancel()
+                fileWatchers.removeValue(forKey: path)
+            }
+        }
+        
+        // Add new watchers
+        for path in directoriesToWatch {
+            if fileWatchers[path] == nil {
+                let fd = open(path, O_EVTONLY)
+                if fd != -1 {
+                    let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: [.write], queue: DispatchQueue.main)
+                    source.setEventHandler { [weak self] in
+                        self?.verifyFiles()
+                    }
+                    source.setCancelHandler {
+                        close(fd)
+                    }
+                    source.resume()
+                    fileWatchers[path] = source
+                }
+            }
+        }
+    }
+    
+    private func verifyFiles() {
+        var changed = false
+        for (index, ingredient) in ingredients.enumerated() {
+            let exists = !ingredient.isOffline && !ingredient.isRemoteYouTube
+            if previousExistenceStatus[ingredient.id] != exists {
+                changed = true
+                previousExistenceStatus[ingredient.id] = exists
+                // Mutate the array so SwiftUI detects the update
+                ingredients[index] = ingredient
+            }
+        }
     }
     
     // MARK: - CRUD Operations
