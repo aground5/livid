@@ -464,10 +464,11 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 2026.01.29;
 				"OTHER_SWIFT_FLAGS[arch=*]" = "-D DIRECT_DISTRIBUTION";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mitocondria.LiveWallpaperEnabler;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = Livid;
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -509,10 +510,11 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 2026.01.29;
 				"OTHER_SWIFT_FLAGS[arch=*]" = "-D DIRECT_DISTRIBUTION";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mitocondria.LiveWallpaperEnabler;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = Livid;
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
