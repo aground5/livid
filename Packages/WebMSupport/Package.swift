@@ -34,8 +34,7 @@ let package = Package(
                 .linkedFramework("IOSurface"),
                 .unsafeFlags([
                     "-L\(Package.packageDirectory)/Frameworks/FFmpeg/lib",
-                    "-L/opt/homebrew/lib",
-                    "-lavformat", "-lavcodec", "-lavfilter", "-lavutil", "-lswscale", "-lx264", "-lx265", "-lzimg", "-ldav1d", "-lplacebo", "-llcms2", "-lshaderc_shared", "-lvulkan", "-lpthread"
+                    "-lavformat", "-lavcodec", "-lavfilter", "-lavutil", "-lswscale", "-lx264", "-lx265", "-lzimg", "-ldav1d", "-lplacebo", "-llcms2", "-lshaderc_combined", "-lvulkan", "-lpthread"
                 ])
             ]
         ),

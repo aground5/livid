@@ -33,17 +33,31 @@ REPO_FFMPEG     := https://git.ffmpeg.org/ffmpeg.git
 REPO_YOUTUBEKIT := https://github.com/alexeichhorn/YouTubeKit.git
 COMMIT_YOUTUBEKIT := 068403f2b7523c7620eab257e64402f722821e05
 
+# Additional Dependencies for libplacebo (Static Build)
+REPO_LCMS2          := https://github.com/mm2/Little-CMS.git
+REPO_VULKAN_HEADERS := https://github.com/KhronosGroup/Vulkan-Headers.git
+REPO_VULKAN         := https://github.com/KhronosGroup/Vulkan-Loader.git
+REPO_SHADERC        := https://github.com/google/shaderc.git
+
 # ==============================================================================
 # Targets
 # ==============================================================================
 
-.PHONY: all clean clean-all dirs zimg x264 x265 dav1d libplacebo ffmpeg copy-framework \
-        clean-zimg clean-x264 clean-x265 clean-dav1d clean-libplacebo clean-ffmpeg \
+.PHONY: all clean clean-all dirs zimg x264 x265 dav1d lcms2 vulkan-headers vulkan shaderc libplacebo ffmpeg copy-framework \
+        clean-zimg clean-x264 clean-x265 clean-dav1d clean-lcms2 clean-vulkan-headers clean-vulkan clean-shaderc clean-libplacebo clean-ffmpeg \
         clean-xcode-cache resolve-deps build-xcode build-release release-dmg release-all appcast run
 
 dirs:
 	@mkdir -p $(SRC_DIR)
 	@mkdir -p $(BUILD_DIR)
+
+# Environment Isolation
+# ==============================================================================
+# We need to find tools in /opt/homebrew/bin (meson, ninja, cmake), 
+# but we strictly isolate the LIBRARIES and HEADERS to our build directory.
+export PKG_CONFIG_PATH := $(LIB_DIR)/pkgconfig
+export PKG_CONFIG_LIBDIR := $(LIB_DIR)/pkgconfig
+export PATH := $(BUILD_DIR)/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
 
 # ==============================================================================
 # 1. zimg
@@ -165,6 +179,129 @@ $(DAV1D_LIB): | $(DAV1D_DIR)
 dav1d: $(DAV1D_LIB)
 
 # ==============================================================================
+# 5. lcms2 (Little CMS)
+# ==============================================================================
+LCMS2_DIR := $(SRC_DIR)/lcms2
+LCMS2_LIB := $(LIB_DIR)/liblcms2.a
+
+$(LCMS2_DIR): | dirs
+	@echo "📥 Cloning lcms2..."
+	cd $(SRC_DIR) && git clone $(REPO_LCMS2) lcms2
+
+$(LCMS2_LIB): | $(LCMS2_DIR)
+	@echo "🏗️ Building lcms2..."
+	cd $(LCMS2_DIR) && git pull || true
+	cd $(LCMS2_DIR) && if [ ! -f configure ]; then ./autogen.sh; fi
+	cd $(LCMS2_DIR) && if [ ! -f Makefile ]; then \
+		./configure --prefix="$(BUILD_DIR)" --enable-static --disable-shared --with-pic; \
+	fi
+	$(MAKE) -C $(LCMS2_DIR) -j$(JOBS)
+	$(MAKE) -C $(LCMS2_DIR) install
+	@echo "✅ lcms2 installed"
+
+lcms2: $(LCMS2_LIB)
+
+# ==============================================================================
+# 6. vulkan-headers
+# ==============================================================================
+VULKAN_HEADERS_DIR := $(SRC_DIR)/vulkan-headers
+VULKAN_HEADERS_LIB := $(INCLUDE_DIR)/vulkan/vulkan.h
+
+$(VULKAN_HEADERS_DIR): | dirs
+	@echo "📥 Cloning vulkan-headers..."
+	cd $(SRC_DIR) && git clone $(REPO_VULKAN_HEADERS) vulkan-headers
+
+$(VULKAN_HEADERS_LIB): | $(VULKAN_HEADERS_DIR)
+	@echo "🏗️ Installing vulkan-headers..."
+	cd $(VULKAN_HEADERS_DIR) && git pull || true
+	@mkdir -p $(VULKAN_HEADERS_DIR)/build
+	cd $(VULKAN_HEADERS_DIR)/build && \
+	cmake -G "Unix Makefiles" .. -DCMAKE_INSTALL_PREFIX="$(BUILD_DIR)"
+	$(MAKE) -C $(VULKAN_HEADERS_DIR)/build install
+	@echo "✅ vulkan-headers installed"
+
+vulkan-headers: $(VULKAN_HEADERS_LIB)
+
+# ==============================================================================
+# 7. vulkan (Vulkan Loader)
+# ==============================================================================
+VULKAN_DIR := $(SRC_DIR)/vulkan
+VULKAN_LIB := $(LIB_DIR)/libvulkan.a
+
+$(VULKAN_DIR): | dirs
+	@echo "📥 Cloning vulkan-loader..."
+	cd $(SRC_DIR) && git clone $(REPO_VULKAN) vulkan
+
+$(VULKAN_LIB): $(VULKAN_HEADERS_LIB) | $(VULKAN_DIR)
+	@echo "🏗️ Building vulkan-loader (Total Isolation)..."
+	cd $(VULKAN_DIR) && git pull || true
+	@mkdir -p $(VULKAN_DIR)/build
+	cd $(VULKAN_DIR)/build && \
+	cmake -G "Unix Makefiles" .. \
+		-DCMAKE_INSTALL_PREFIX="$(BUILD_DIR)" \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DAPPLE_STATIC_LOADER=ON \
+		-DBUILD_WSI_METAL_SUPPORT=ON \
+		-DBUILD_WSI_XCB_SUPPORT=OFF \
+		-DBUILD_WSI_XLIB_SUPPORT=OFF \
+		-DBUILD_WSI_WAYLAND_SUPPORT=OFF \
+		-DVULKAN_HEADERS_INSTALL_DIR="$(BUILD_DIR)" \
+		-DCMAKE_PREFIX_PATH="$(BUILD_DIR)" \
+		-DENABLE_WERROR=OFF
+	$(MAKE) -C $(VULKAN_DIR)/build -j$(JOBS)
+	$(MAKE) -C $(VULKAN_DIR)/build install
+	@# Remove all dylibs to force static linking for everything downstream
+	@rm -f $(LIB_DIR)/libvulkan*.dylib
+	@if [ ! -f $(VULKAN_LIB) ]; then \
+		find $(VULKAN_DIR)/build -name "libvulkan.a" -exec cp -f {} $(LIB_DIR)/ \; ; \
+	fi
+	@# Patch vulkan.pc to remove any lingering X11/XCB references and point to static lib
+	@sed -i '' 's/-lX11//g' $(LIB_DIR)/pkgconfig/vulkan.pc 2>/dev/null || true
+	@sed -i '' 's/-lxcb//g' $(LIB_DIR)/pkgconfig/vulkan.pc 2>/dev/null || true
+	@sed -i '' 's/x11//g' $(LIB_DIR)/pkgconfig/vulkan.pc 2>/dev/null || true
+	@sed -i '' 's/xcb//g' $(LIB_DIR)/pkgconfig/vulkan.pc 2>/dev/null || true
+	@echo "✅ vulkan installed (Isolated and Patched)"
+
+vulkan: $(VULKAN_LIB)
+
+# ==============================================================================
+# 7. shaderc
+# ==============================================================================
+SHADERC_DIR := $(SRC_DIR)/shaderc
+SHADERC_LIB := $(LIB_DIR)/libshaderc_combined.a
+
+$(SHADERC_DIR): | dirs
+	@echo "📥 Cloning shaderc..."
+	cd $(SRC_DIR) && git clone $(REPO_SHADERC) shaderc
+
+$(SHADERC_LIB): | $(SHADERC_DIR)
+	@echo "🏗️ Building shaderc (Total Isolation)..."
+	cd $(SHADERC_DIR) && git submodule update --init --recursive
+	cd $(SHADERC_DIR) && ./utils/git-sync-deps
+	@mkdir -p $(SHADERC_DIR)/build
+	cd $(SHADERC_DIR)/build && \
+	cmake -G "Unix Makefiles" .. \
+		-DCMAKE_INSTALL_PREFIX="$(BUILD_DIR)" \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DSHADERC_SKIP_TESTS=ON \
+		-DSHADERC_SKIP_EXAMPLES=ON \
+		-DSHADERC_ENABLE_WERROR_FACILITY=OFF
+	$(MAKE) -C $(SHADERC_DIR)/build -j$(JOBS)
+	$(MAKE) -C $(SHADERC_DIR)/build install
+	@# Remove shared lib to force static
+	@rm -f $(LIB_DIR)/libshaderc_shared*
+	@# shaderc produces multiple libs, combined and static
+	@cp -f $(SHADERC_DIR)/build/libshaderc/libshaderc_combined.a $(LIB_DIR)/
+	@# CRITICAL: Force all shaderc pkg-config files to use the static combined lib
+	@# If we don't do this, FFmpeg find the .pc and links to the Homebrew dylib.
+	@for pc in $(LIB_DIR)/pkgconfig/shaderc*.pc; do \
+		sed -i '' 's/-lshaderc_shared/-lshaderc_combined/g' $$pc 2>/dev/null || true; \
+	done
+	@echo "✅ shaderc installed (Forced Static PC)"
+
+shaderc: $(SHADERC_LIB)
+
+# ==============================================================================
 # 5. libplacebo
 # ==============================================================================
 PLACEBO_DIR := $(SRC_DIR)/libplacebo
@@ -175,17 +312,17 @@ $(PLACEBO_DIR): | dirs
 	@echo "📥 Cloning libplacebo..."
 	cd $(SRC_DIR) && git clone --recursive $(REPO_LIBPLACEBO) libplacebo
 
-$(PLACEBO_LIB): | $(PLACEBO_DIR)
-	@echo "🏗️ Building libplacebo..."
+$(PLACEBO_LIB): $(LCMS2_LIB) $(VULKAN_LIB) $(SHADERC_LIB) | $(PLACEBO_DIR)
+	@echo "🏗️ Building libplacebo (Isolated Environment)..."
 	cd $(PLACEBO_DIR) && git pull || true
 	cd $(PLACEBO_DIR) && git submodule update --init --recursive
 	@mkdir -p $(PLACEBO_DIR)/build
 	cd $(PLACEBO_DIR) && \
-	if [ ! -f build/build.ninja ]; then \
-		meson setup build --prefix="$(BUILD_DIR)" --buildtype=release \
+	PKG_CONFIG_PATH="$(LIB_DIR)/pkgconfig" PKG_CONFIG_LIBDIR="$(LIB_DIR)/pkgconfig" \
+	meson setup build --prefix="$(BUILD_DIR)" --buildtype=release \
 		--default-library=static -Dvulkan=enabled -Dshaderc=enabled \
-		-Dlcms=enabled -Dd3d11=disabled -Ddemos=false -Dtests=false; \
-	fi
+		-Dlcms=enabled -Dd3d11=disabled -Ddemos=false -Dtests=false \
+		--reconfigure
 	ninja -C $(PLACEBO_DIR)/build
 	ninja -C $(PLACEBO_DIR)/build install
 	
@@ -245,19 +382,20 @@ FFMPEG_CONFIG_FLAGS := \
 	--enable-neon \
 	--enable-asm \
 	--pkg-config-flags="--static" \
-	--extra-cflags="-I$(INCLUDE_DIR) -I/opt/homebrew/include -fno-stack-check" \
-	--extra-ldflags="-L$(LIB_DIR) -L/opt/homebrew/lib" \
-	--extra-libs="-lplacebo -lshaderc_shared -llcms2 -lzimg -ldav1d -lx264 -lx265 -lc++ -framework Metal -framework CoreVideo -framework IOSurface -framework QuartzCore -framework Foundation"
+	--extra-cflags="-I$(INCLUDE_DIR)" \
+	--extra-ldflags="-L$(LIB_DIR) -Wl,-dead_strip" \
+	--extra-libs="-lplacebo -lshaderc_combined -llcms2 -lvulkan -lzimg -ldav1d -lx264 -lx265 -lc++ -framework Metal -framework CoreVideo -framework IOSurface -framework QuartzCore -framework Foundation -framework Cocoa"
 
 $(FFMPEG_DIR): | dirs
 	@echo "📥 Cloning FFmpeg..."
 	cd $(SRC_DIR) && git clone $(REPO_FFMPEG) ffmpeg
 
-$(FFMPEG_BIN): $(ZIMG_LIB) $(X264_LIB) $(X265_LIB) $(DAV1D_LIB) $(PLACEBO_LIB) | $(FFMPEG_DIR)
-	@echo "🏗️ Building FFmpeg..."
+$(FFMPEG_BIN): $(ZIMG_LIB) $(X264_LIB) $(X265_LIB) $(DAV1D_LIB) $(LCMS2_LIB) $(VULKAN_LIB) $(SHADERC_LIB) $(PLACEBO_LIB) | $(FFMPEG_DIR)
+	@echo "🏗️ Building FFmpeg (Isolated Environment)..."
 	cd $(FFMPEG_DIR) && \
 	if [ ! -f config.mak ]; then \
-		echo "⚙️ Configuring FFmpeg..."; \
+		echo "⚙️ Configuring FFmpeg (Strict Isolation)..."; \
+		PKG_CONFIG_PATH="$(LIB_DIR)/pkgconfig" PKG_CONFIG_LIBDIR="$(LIB_DIR)/pkgconfig" \
 		./configure $(FFMPEG_CONFIG_FLAGS); \
 	fi
 	$(MAKE) -C $(FFMPEG_DIR) -j$(JOBS)
@@ -364,16 +502,26 @@ build-release: copy-framework resolve-deps
 		SYMROOT=$(XCODE_BUILD_DIR) build
 
 release-dmg: build-release
-	@echo "📦 Bundling dynamic libraries with dylibbundler..."
-	@mkdir -p $(RELEASE_APP_PATH)/Contents/Frameworks
-	@dylibbundler -od -b -x "$(RELEASE_APP_PATH)/Contents/MacOS/$(APP_NAME)" -d "$(RELEASE_APP_PATH)/Contents/Frameworks/" -p @executable_path/../Frameworks/
 	@echo "📦 Packaging DMG with create-dmg..."
 	@rm -f $(PROJECT_ROOT)/$(APP_NAME).dmg
 	@rm -rf /tmp/livid-dmg-source
 	@mkdir -p /tmp/livid-dmg-source
 	@mkdir -p $(RELEASES_DIR)
 	@cp -R $(RELEASE_APP_PATH) /tmp/livid-dmg-source/
-	@# Use create-dmg for professional styling (Background is 512x512 logical points)
+	@# Generate user-friendly help script
+	@FIX_SCRIPT_NAME="실행이_안될_때_클릭하세요.command"; \
+	FIX_SCRIPT_PATH="/tmp/livid-dmg-source/$$FIX_SCRIPT_NAME"; \
+	echo '#!/bin/bash' > "$$FIX_SCRIPT_PATH"; \
+	echo 'APP_PATH="/Applications/Livid.app"' >> "$$FIX_SCRIPT_PATH"; \
+	echo 'if [ ! -d "$$APP_PATH" ]; then' >> "$$FIX_SCRIPT_PATH"; \
+	echo '  osascript -e "display dialog \"Livid 앱이 /Applications 폴더에 없습니다.\n먼저 앱을 드래그하여 설치해주세요.\" buttons {\"확인\"} default button \"확인\" with icon stop"' >> "$$FIX_SCRIPT_PATH"; \
+	echo 'else' >> "$$FIX_SCRIPT_PATH"; \
+	echo '  codesign --force --deep --sign - "$$APP_PATH"' >> "$$FIX_SCRIPT_PATH"; \
+	echo '  xattr -rd com.apple.quarantine "$$APP_PATH"' >> "$$FIX_SCRIPT_PATH"; \
+	echo '  osascript -e "display dialog \"성공적으로 복구되었습니다!\n이제 앱을 실행할 수 있습니다.\" buttons {\"확인\"} default button \"확인\" with icon note"' >> "$$FIX_SCRIPT_PATH"; \
+	echo 'fi' >> "$$FIX_SCRIPT_PATH"; \
+	chmod +x "$$FIX_SCRIPT_PATH"
+	@# Use create-dmg for professional styling
 	@create-dmg \
 		--volname "$(APP_NAME)" \
 		--background "$(DMG_BG)" \
@@ -383,6 +531,7 @@ release-dmg: build-release
 		--icon "$(APP_NAME).app" 128 330 \
 		--hide-extension "$(APP_NAME).app" \
 		--app-drop-link 384 330 \
+		--icon "실행이_안될_때_클릭하세요.command" 384 120 \
 		--format UDZO \
 		"$(PROJECT_ROOT)/$(APP_NAME).dmg" \
 		"/tmp/livid-dmg-source/"
@@ -391,7 +540,7 @@ release-dmg: build-release
 	ARCH=$$(uname -m); \
 	FINAL_DMG=$(RELEASES_DIR)/livid-macos-$${ARCH}-$${VERSION}.dmg; \
 	cp $(PROJECT_ROOT)/$(APP_NAME).dmg $$FINAL_DMG; \
-	echo "✅ Done! Final DMGs generated:"; \
+	echo "✅ Done! Final DMGs generated with help script:"; \
 	echo "   - Archive: $$FINAL_DMG"; \
 	echo "   - Latest:  $(PROJECT_ROOT)/$(APP_NAME).dmg"
 	@rm -rf /tmp/livid-dmg-source
