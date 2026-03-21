@@ -9,16 +9,14 @@
 /* Begin PBXBuildFile section */
 		0A1BD1372F3A34EF005AA44A /* WebMSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 0A1BD1362F3A34EF005AA44A /* WebMSupport */; };
 		0A67C36A2F5200280087C7FB /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 0A67C3692F5200280087C7FB /* Sparkle */; };
-		0A8CFC452F336FC2006D784F /* YouTubeKit in Frameworks */ = {isa = PBXBuildFile; productRef = 0A8CFC442F336FC2006D784F /* YouTubeKit */; };
 		0A8CFC5F2F34BAB7006D784F /* Hummingbird in Frameworks */ = {isa = PBXBuildFile; productRef = 0A8CFC5E2F34BAB7006D784F /* Hummingbird */; };
 		0A8CFC622F34BAF8006D784F /* HummingbirdCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0A8CFC612F34BAF8006D784F /* HummingbirdCore */; };
 		0A8CFC642F34BAF8006D784F /* HummingbirdHTTP2 in Frameworks */ = {isa = PBXBuildFile; productRef = 0A8CFC632F34BAF8006D784F /* HummingbirdHTTP2 */; };
 		0A8CFC662F34BAF8006D784F /* HummingbirdRouter in Frameworks */ = {isa = PBXBuildFile; productRef = 0A8CFC652F34BAF8006D784F /* HummingbirdRouter */; };
 		0A8CFC682F34BAF8006D784F /* HummingbirdTesting in Frameworks */ = {isa = PBXBuildFile; productRef = 0A8CFC672F34BAF8006D784F /* HummingbirdTesting */; };
 		0A8CFC6A2F34BAF8006D784F /* HummingbirdTLS in Frameworks */ = {isa = PBXBuildFile; productRef = 0A8CFC692F34BAF8006D784F /* HummingbirdTLS */; };
-		0AA556D12F3A354D0072AB25 /* YouTubeKit in Frameworks */ = {isa = PBXBuildFile; productRef = 0AA556D02F3A354D0072AB25 /* YouTubeKit */; };
 		0AAFFB512F292C5E007DD74E /* WebMSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 0AAFFB502F292C5E007DD74E /* WebMSupport */; };
-		0AAFFB762F2B57A8007DD74E /* com.mitocondria.LiveWallpaperHelper.app in Embed XPC Services */ = {isa = PBXBuildFile; fileRef = 0AAFFB6B2F2B57A8007DD74E /* com.mitocondria.LiveWallpaperHelper.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		0AAFFB762F2B57A8007DD74E /* com.mitocondria.LiveWallpaperHelper.xpc in Embed XPC Services */ = {isa = PBXBuildFile; fileRef = 0AAFFB6B2F2B57A8007DD74E /* com.mitocondria.LiveWallpaperHelper.xpc */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -38,7 +36,7 @@
 			dstPath = "$(CONTENTS_FOLDER_PATH)/XPCServices";
 			dstSubfolderSpec = 16;
 			files = (
-				0AAFFB762F2B57A8007DD74E /* com.mitocondria.LiveWallpaperHelper.app in Embed XPC Services */,
+				0AAFFB762F2B57A8007DD74E /* com.mitocondria.LiveWallpaperHelper.xpc in Embed XPC Services */,
 			);
 			name = "Embed XPC Services";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -47,7 +45,7 @@
 
 /* Begin PBXFileReference section */
 		0A291C5B2F29066600A8B5B9 /* Livid.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Livid.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		0AAFFB6B2F2B57A8007DD74E /* com.mitocondria.LiveWallpaperHelper.app */ = {isa = PBXFileReference; explicitFileType = "wrapper.xpc-service"; includeInIndex = 0; path = com.mitocondria.LiveWallpaperHelper.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0AAFFB6B2F2B57A8007DD74E /* com.mitocondria.LiveWallpaperHelper.xpc */ = {isa = PBXFileReference; explicitFileType = "wrapper.xpc-service"; includeInIndex = 0; path = com.mitocondria.LiveWallpaperHelper.xpc; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -55,6 +53,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				"Resources/Binaries/yt-dlp",
 			);
 			target = 0A291C5A2F29066600A8B5B9 /* LiveWallpaperEnabler */;
 		};
@@ -126,7 +125,6 @@
 				0AAFFB512F292C5E007DD74E /* WebMSupport in Frameworks */,
 				0A67C36A2F5200280087C7FB /* Sparkle in Frameworks */,
 				0A1BD1372F3A34EF005AA44A /* WebMSupport in Frameworks */,
-				0AA556D12F3A354D0072AB25 /* YouTubeKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -138,7 +136,6 @@
 				0A8CFC662F34BAF8006D784F /* HummingbirdRouter in Frameworks */,
 				0A8CFC6A2F34BAF8006D784F /* HummingbirdTLS in Frameworks */,
 				0A8CFC682F34BAF8006D784F /* HummingbirdTesting in Frameworks */,
-				0A8CFC452F336FC2006D784F /* YouTubeKit in Frameworks */,
 				0A8CFC622F34BAF8006D784F /* HummingbirdCore in Frameworks */,
 				0A8CFC5F2F34BAB7006D784F /* Hummingbird in Frameworks */,
 			);
@@ -161,7 +158,7 @@
 			isa = PBXGroup;
 			children = (
 				0A291C5B2F29066600A8B5B9 /* Livid.app */,
-				0AAFFB6B2F2B57A8007DD74E /* com.mitocondria.LiveWallpaperHelper.app */,
+				0AAFFB6B2F2B57A8007DD74E /* com.mitocondria.LiveWallpaperHelper.xpc */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -197,7 +194,6 @@
 			packageProductDependencies = (
 				0AAFFB502F292C5E007DD74E /* WebMSupport */,
 				0A1BD1362F3A34EF005AA44A /* WebMSupport */,
-				0AA556D02F3A354D0072AB25 /* YouTubeKit */,
 				0A67C3692F5200280087C7FB /* Sparkle */,
 			);
 			productName = LiveWallpaperEnabler;
@@ -211,6 +207,7 @@
 				0AAFFB672F2B57A8007DD74E /* Sources */,
 				0AAFFB682F2B57A8007DD74E /* Frameworks */,
 				0AAFFB692F2B57A8007DD74E /* Resources */,
+				C0D31A132603130000000001 /* Copy Standalone Python Runtime */,
 			);
 			buildRules = (
 			);
@@ -221,7 +218,6 @@
 			);
 			name = LiveWallpaperHelper;
 			packageProductDependencies = (
-				0A8CFC442F336FC2006D784F /* YouTubeKit */,
 				0A8CFC5E2F34BAB7006D784F /* Hummingbird */,
 				0A8CFC612F34BAF8006D784F /* HummingbirdCore */,
 				0A8CFC632F34BAF8006D784F /* HummingbirdHTTP2 */,
@@ -230,7 +226,7 @@
 				0A8CFC692F34BAF8006D784F /* HummingbirdTLS */,
 			);
 			productName = LiveWallpaperHelper;
-			productReference = 0AAFFB6B2F2B57A8007DD74E /* com.mitocondria.LiveWallpaperHelper.app */;
+			productReference = 0AAFFB6B2F2B57A8007DD74E /* com.mitocondria.LiveWallpaperHelper.xpc */;
 			productType = "com.apple.product-type.xpc-service";
 		};
 /* End PBXNativeTarget section */
@@ -263,7 +259,6 @@
 			packageReferences = (
 				0A8CFC5D2F34BAB7006D784F /* XCRemoteSwiftPackageReference "hummingbird" */,
 				0A1BD1352F3A34EE005AA44A /* XCLocalSwiftPackageReference "../Packages/WebMSupport" */,
-				0AA556CF2F3A354D0072AB25 /* XCLocalSwiftPackageReference "../Packages/YouTubeKit" */,
 				0A67C3682F5200280087C7FB /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -293,6 +288,29 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		C0D31A132603130000000001 /* Copy Standalone Python Runtime */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(PROJECT_DIR)/../Packages/cpython-3.13.9-macos-aarch64-none",
+			);
+			name = "Copy Standalone Python Runtime";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/cpython-3.13.9-macos-aarch64-none",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\nsrc=\"${PROJECT_DIR}/../Packages/cpython-3.13.9-macos-aarch64-none\"\ndst=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/cpython-3.13.9-macos-aarch64-none\"\n\nif [ ! -d \"$src\" ]; then\n  echo \"error: missing standalone runtime at $src\" >&2\n  exit 1\nfi\n\nrm -rf \"$dst\"\nmkdir -p \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nditto \"$src\" \"$dst\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		0A291C572F29066600A8B5B9 /* Sources */ = {
@@ -449,10 +467,10 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = LiveWallpaperEnabler/LiveWallpaperEnabler.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = "LiveWallpaperEnabler/LiveWallpaperEnabler-Direct.entitlements";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = KUJY2K5BCW;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
@@ -465,10 +483,11 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2026.02.28;
+				MARKETING_VERSION = 2026.03.21;
 				"OTHER_SWIFT_FLAGS[arch=*]" = "-D DIRECT_DISTRIBUTION";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mitocondria.LiveWallpaperEnabler;
 				PRODUCT_NAME = Livid;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -486,10 +505,10 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = LiveWallpaperEnabler/LiveWallpaperEnabler.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = "LiveWallpaperEnabler/LiveWallpaperEnabler-Direct.entitlements";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = KUJY2K5BCW;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
@@ -512,10 +531,11 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2026.02.28;
+				MARKETING_VERSION = 2026.03.21;
 				"OTHER_SWIFT_FLAGS[arch=*]" = "-D DIRECT_DISTRIBUTION";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mitocondria.LiveWallpaperEnabler;
 				PRODUCT_NAME = Livid;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -538,6 +558,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = KUJY2K5BCW;
 				ENABLE_APP_SANDBOX = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LiveWallpaperHelper/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = LiveWallpaperHelper;
@@ -553,7 +574,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				WRAPPER_EXTENSION = app;
+				WRAPPER_EXTENSION = xpc;
 			};
 			name = Debug;
 		};
@@ -568,6 +589,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = KUJY2K5BCW;
 				ENABLE_APP_SANDBOX = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LiveWallpaperHelper/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = LiveWallpaperHelper;
@@ -583,7 +605,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				WRAPPER_EXTENSION = app;
+				WRAPPER_EXTENSION = xpc;
 			};
 			name = Release;
 		};
@@ -624,10 +646,6 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../Packages/WebMSupport;
 		};
-		0AA556CF2F3A354D0072AB25 /* XCLocalSwiftPackageReference "../Packages/YouTubeKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../Packages/YouTubeKit;
-		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -659,10 +677,6 @@
 			package = 0A67C3682F5200280087C7FB /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
 		};
-		0A8CFC442F336FC2006D784F /* YouTubeKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = YouTubeKit;
-		};
 		0A8CFC5E2F34BAB7006D784F /* Hummingbird */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 0A8CFC5D2F34BAB7006D784F /* XCRemoteSwiftPackageReference "hummingbird" */;
@@ -692,10 +706,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 0A8CFC5D2F34BAB7006D784F /* XCRemoteSwiftPackageReference "hummingbird" */;
 			productName = HummingbirdTLS;
-		};
-		0AA556D02F3A354D0072AB25 /* YouTubeKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = YouTubeKit;
 		};
 		0AAFFB502F292C5E007DD74E /* WebMSupport */ = {
 			isa = XCSwiftPackageProductDependency;
