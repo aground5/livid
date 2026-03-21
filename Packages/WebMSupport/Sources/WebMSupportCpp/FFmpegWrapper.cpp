@@ -297,6 +297,31 @@ bool FFmpegWrapper::prepareToMov(const char *outputPath, double startTime,
   settings.endTime = endTime;
   settings.useFilterGraph =
       false; // Never use filters in prepare mode (keep it fast)
+  settings.useStreamCopy = false;
+  return transcodeInternal(outputPath, settings, cb, user_data);
+}
+
+bool FFmpegWrapper::remuxToMov(const char *outputPath, double startTime,
+                               double endTime, ProgressCallback cb,
+                               void *user_data) {
+  TranscodeSettings settings;
+  settings.encoderName = nullptr;
+  settings.targetHeight = 0;
+  settings.targetFps = 0;
+  settings.bitrate = 0;
+  settings.profile = -1;
+  settings.swsFlags = SWS_POINT;
+  settings.x265Params = nullptr;
+  settings.preset = nullptr;
+  settings.crf = nullptr;
+  settings.timescale = 0;
+  settings.realtime = true;
+  settings.tonemap = false;
+  settings.tenBit = false;
+  settings.startTime = startTime;
+  settings.endTime = endTime;
+  settings.useFilterGraph = false;
+  settings.useStreamCopy = true;
   return transcodeInternal(outputPath, settings, cb, user_data);
 }
 
@@ -311,10 +336,9 @@ bool FFmpegWrapper::exportToMov(const char *outputPath, double startTime,
   settings.profile = -1;
   settings.swsFlags = SWS_BICUBIC;
   settings.x265Params =
-      "bframes=4:b-adapt=2:b-pyramid=1:keyint=240:min-keyint=240:no-scenecut=1:"
-      "open-gop=0:temporal-layers=3";
+      "bframes=4:b-adapt=2:b-pyramid=1:temporal-layers=3";
   settings.preset = "medium";
-  settings.crf = "22";
+  settings.crf = "18";
   settings.timescale = 240000;
   settings.realtime = false;
   settings.tonemap =
@@ -324,6 +348,7 @@ bool FFmpegWrapper::exportToMov(const char *outputPath, double startTime,
   settings.endTime = endTime;
   settings.useFilterGraph =
       true; // Use filters (including HDR tone mapping) for export
+  settings.useStreamCopy = false;
   return transcodeInternal(outputPath, settings, cb, user_data);
 }
 
@@ -338,10 +363,9 @@ bool FFmpegWrapper::exportToMovExt(const char *outputPath, double startTime,
   settings.profile = -1;
   settings.swsFlags = SWS_BICUBIC;
   settings.x265Params =
-      "bframes=4:b-adapt=2:b-pyramid=1:keyint=240:min-keyint=240:no-scenecut=1:"
-      "open-gop=0:temporal-layers=3";
+      "bframes=4:b-adapt=2:b-pyramid=1:temporal-layers=3";
   settings.preset = "medium";
-  settings.crf = "22";
+  settings.crf = "18";
   settings.timescale = 240000;
   settings.realtime = false;
   settings.tonemap = tonemap;
@@ -349,6 +373,7 @@ bool FFmpegWrapper::exportToMovExt(const char *outputPath, double startTime,
   settings.startTime = startTime;
   settings.endTime = endTime;
   settings.useFilterGraph = true;
+  settings.useStreamCopy = false;
   return transcodeInternal(outputPath, settings, cb, user_data);
 }
 
@@ -359,10 +384,100 @@ bool FFmpegWrapper::transcodeInternal(const char *outputPath,
   if (!isOpen())
     return false;
 
+  m_should_stop = false;
+
   AVFormatContext *out_fmt_ctx = nullptr;
-  if (avformat_alloc_output_context2(&out_fmt_ctx, nullptr, "mov", outputPath) <
-      0)
+  if (avformat_alloc_output_context2(&out_fmt_ctx, nullptr, nullptr,
+                                     outputPath) < 0)
     return false;
+
+  // --- FAST PATH: STREAM COPY (REMUXING) ---
+  if (settings.useStreamCopy) {
+    AVStream *in_stream = m_fmt_ctx->streams[m_video_stream_idx];
+    AVStream *out_stream = avformat_new_stream(out_fmt_ctx, nullptr);
+    if (!out_stream) {
+      avformat_free_context(out_fmt_ctx);
+      return false;
+    }
+
+    avcodec_parameters_copy(out_stream->codecpar, in_stream->codecpar);
+
+    // Apple/Live Wallpaper compatibility for HEVC
+    if (out_stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
+      out_stream->codecpar->codec_tag = MKTAG('h', 'v', 'c', '1');
+    } else {
+      out_stream->codecpar->codec_tag = 0;
+    }
+
+    if (!(out_fmt_ctx->oformat->flags & AVFMT_NOFILE)) {
+      if (avio_open(&out_fmt_ctx->pb, outputPath, AVIO_FLAG_WRITE) < 0) {
+        avformat_free_context(out_fmt_ctx);
+        return false;
+      }
+    }
+
+    if (avformat_write_header(out_fmt_ctx, nullptr) < 0) {
+      if (!(out_fmt_ctx->oformat->flags & AVFMT_NOFILE)) {
+        avio_closep(&out_fmt_ctx->pb);
+      }
+      avformat_free_context(out_fmt_ctx);
+      return false;
+    }
+
+    if (settings.startTime > 0) {
+      int64_t seek_target = (int64_t)(settings.startTime * AV_TIME_BASE);
+      av_seek_frame(m_fmt_ctx, -1, seek_target, AVSEEK_FLAG_BACKWARD);
+    }
+
+    AVPacket *pkt = av_packet_alloc();
+    double asset_duration_sec = (double)m_fmt_ctx->duration / AV_TIME_BASE;
+    double effective_end =
+        (settings.endTime > 0 && settings.endTime < asset_duration_sec)
+            ? settings.endTime
+            : asset_duration_sec;
+    double duration_sec = effective_end - settings.startTime;
+
+    while (av_read_frame(m_fmt_ctx, pkt) >= 0) {
+      if (m_should_stop) {
+        av_packet_unref(pkt);
+        break;
+      }
+      if (pkt->stream_index == m_video_stream_idx) {
+        double current_time = pkt->pts * av_q2d(in_stream->time_base);
+        if (current_time < settings.startTime) {
+          av_packet_unref(pkt);
+          continue;
+        }
+        if (settings.endTime > 0 && current_time > settings.endTime) {
+          av_packet_unref(pkt);
+          break;
+        }
+
+        // Rescale timestamps
+        av_packet_rescale_ts(pkt, in_stream->time_base, out_stream->time_base);
+        pkt->pos = -1;
+        pkt->stream_index = 0;
+
+        av_interleaved_write_frame(out_fmt_ctx, pkt);
+
+        if (progressCallback && duration_sec > 0) {
+          double progress = (current_time - settings.startTime) / duration_sec;
+          progressCallback(std::min(1.0, std::max(0.0, progress)), user_data);
+        }
+      }
+      av_packet_unref(pkt);
+    }
+
+    av_write_trailer(out_fmt_ctx);
+    av_packet_free(&pkt);
+
+    if (!(out_fmt_ctx->oformat->flags & AVFMT_NOFILE)) {
+      avio_closep(&out_fmt_ctx->pb);
+    }
+    avformat_free_context(out_fmt_ctx);
+    return true;
+  }
+  // --- END FAST PATH ---
 
   if (!initDecoder()) {
     avformat_free_context(out_fmt_ctx);
@@ -569,6 +684,10 @@ bool FFmpegWrapper::transcodeInternal(const char *outputPath,
   }
 
   while (av_read_frame(m_fmt_ctx, in_pkt) >= 0) {
+    if (m_should_stop) {
+      av_packet_unref(in_pkt);
+      break;
+    }
     if (in_pkt->stream_index == m_video_stream_idx) {
       if (avcodec_send_packet(m_dec_ctx, in_pkt) == 0) {
         while (avcodec_receive_frame(m_dec_ctx, dec_frame) == 0) {
@@ -784,5 +903,21 @@ bool FFmpegWrapper_ExportToMovExt(FFmpegWrapperRef ref, const char *outputPath,
   return ((FFmpegWrapper *)ref)
       ->exportToMovExt(outputPath, startTime, endTime, tonemap, tenBit,
                        (FFmpegWrapper::ProgressCallback)cb, user_data);
+}
+
+bool FFmpegWrapper_RemuxToMov(FFmpegWrapperRef ref, const char *outputPath,
+                              double startTime, double endTime,
+                              FFmpegProgressCallback cb, void *user_data) {
+  if (!ref)
+    return false;
+  return ((FFmpegWrapper *)ref)
+      ->remuxToMov(outputPath, startTime, endTime,
+                   (FFmpegWrapper::ProgressCallback)cb, user_data);
+}
+
+void FFmpegWrapper_Stop(FFmpegWrapperRef ref) {
+  if (ref) {
+    ((FFmpegWrapper *)ref)->stop();
+  }
 }
 }

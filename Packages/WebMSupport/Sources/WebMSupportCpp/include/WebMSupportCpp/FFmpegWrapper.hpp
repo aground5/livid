@@ -45,6 +45,10 @@ public:
   bool exportToMovExt(const char *outputPath, double startTime, double endTime,
                       bool tonemap, bool tenBit, ProgressCallback cb,
                       void *user_data);
+  bool remuxToMov(const char *outputPath, double startTime, double endTime,
+                  ProgressCallback cb, void *user_data);
+
+  void stop() { m_should_stop = true; }
 
   // Manual decoding (if needed)
   bool initDecoder();
@@ -57,6 +61,7 @@ private:
   AVPacket *m_pkt;
   int m_video_stream_idx;
   bool m_decoder_initialized;
+  bool m_should_stop = false;
 
   struct TranscodeSettings {
     const char *encoderName;
@@ -75,6 +80,7 @@ private:
     double startTime;
     double endTime;
     bool useFilterGraph;
+    bool useStreamCopy;
   };
 
   bool transcodeInternal(const char *outputPath,

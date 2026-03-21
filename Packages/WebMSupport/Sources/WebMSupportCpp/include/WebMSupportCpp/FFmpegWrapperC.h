@@ -31,6 +31,12 @@ bool FFmpegWrapper_ExportToMovExt(FFmpegWrapperRef ref, const char *outputPath,
                                   bool tonemap, bool tenBit,
                                   FFmpegProgressCallback cb, void *user_data);
 
+bool FFmpegWrapper_RemuxToMov(FFmpegWrapperRef ref, const char *outputPath,
+                                double startTime, double endTime,
+                                FFmpegProgressCallback cb, void *user_data);
+
+void FFmpegWrapper_Stop(FFmpegWrapperRef ref);
+
 #ifdef __cplusplus
 }
 #endif

@@ -2,7 +2,7 @@ import Foundation
 import CoreVideo
 import WebMSupportCpp
 
-public class FFmpegBridge {
+public class FFmpegBridge: @unchecked Sendable {
     private var ref: FFmpegWrapperRef?
     
     public init(path: String) throws {
@@ -42,7 +42,7 @@ public class FFmpegBridge {
         return "unknown"
     }
     
-    public typealias ProgressBlock = (Double) -> Void
+    public typealias ProgressBlock = @Sendable (Double) -> Void
     
     public struct FFmpegTranscodeSettings {
         public var startTime: Double = 0.0
@@ -60,14 +60,20 @@ public class FFmpegBridge {
     
     public func prepareToMov(outputUrl: URL, startTime: Double = 0.0, endTime: Double = 0.0, progress: ProgressBlock? = nil) throws {
         guard let ref = ref else { return }
-        var progressHandler = progress
-        let success = withUnsafeMutablePointer(to: &progressHandler) { handlerPtr in
-             FFmpegWrapper_PrepareToMov(ref, outputUrl.path, startTime, endTime, { p, userData in
-                guard let userData = userData else { return }
-                let block = userData.assumingMemoryBound(to: ProgressBlock?.self).pointee
-                block?(p)
-            }, handlerPtr)
+        
+        let handlerBox = progress.map { Box($0) }
+        let userData = handlerBox.map { Unmanaged.passRetained($0).toOpaque() }
+        
+        let success = FFmpegWrapper_PrepareToMov(ref, outputUrl.path, startTime, endTime, { p, userData in
+            guard let userData = userData else { return }
+            let box = Unmanaged<Box<ProgressBlock>>.fromOpaque(userData).takeUnretainedValue()
+            box.value(p)
+        }, userData)
+        
+        if let userData = userData {
+            Unmanaged<Box<ProgressBlock>>.fromOpaque(userData).release()
         }
+        
         if !success {
             throw NSError(domain: "FFmpegBridge", code: 3, userInfo: [NSLocalizedDescriptionKey: "Preparation failed"])
         }
@@ -75,24 +81,62 @@ public class FFmpegBridge {
     
     public func exportToMov(outputUrl: URL, settings: FFmpegTranscodeSettings, progress: ProgressBlock? = nil) throws {
         guard let ref = ref else { return }
-        var progressHandler = progress
-        let success = withUnsafeMutablePointer(to: &progressHandler) { handlerPtr in
-             FFmpegWrapper_ExportToMovExt(
-                ref,
-                outputUrl.path,
-                settings.startTime,
-                settings.endTime,
-                settings.tonemap,
-                settings.tenBit,
-                { p, userData in
-                    guard let userData = userData else { return }
-                    let block = userData.assumingMemoryBound(to: ProgressBlock?.self).pointee
-                    block?(p)
-                },
-                handlerPtr)
+        
+        let handlerBox = progress.map { Box($0) }
+        let userData = handlerBox.map { Unmanaged.passRetained($0).toOpaque() }
+        
+        let success = FFmpegWrapper_ExportToMovExt(
+            ref,
+            outputUrl.path,
+            settings.startTime,
+            settings.endTime,
+            settings.tonemap,
+            settings.tenBit,
+            { p, userData in
+                guard let userData = userData else { return }
+                let box = Unmanaged<Box<ProgressBlock>>.fromOpaque(userData).takeUnretainedValue()
+                box.value(p)
+            },
+            userData)
+            
+        if let userData = userData {
+            Unmanaged<Box<ProgressBlock>>.fromOpaque(userData).release()
         }
+        
         if !success {
             throw NSError(domain: "FFmpegBridge", code: 4, userInfo: [NSLocalizedDescriptionKey: "Export failed"])
         }
     }
+
+    public func remuxToMov(outputUrl: URL, startTime: Double = 0.0, endTime: Double = 0.0, progress: ProgressBlock? = nil) throws {
+        guard let ref = self.ref else { return }
+        
+        let handlerBox = progress.map { Box($0) }
+        let userData = handlerBox.map { Unmanaged.passRetained($0).toOpaque() }
+        
+        let success = FFmpegWrapper_RemuxToMov(ref, outputUrl.path, startTime, endTime, { p, userData in
+            guard let userData = userData else { return }
+            let box = Unmanaged<Box<ProgressBlock>>.fromOpaque(userData).takeUnretainedValue()
+            box.value(p)
+        }, userData)
+        
+        if let userData = userData {
+            Unmanaged<Box<ProgressBlock>>.fromOpaque(userData).release()
+        }
+        
+        if !success {
+            throw NSError(domain: "FFmpegBridge", code: 5, userInfo: [NSLocalizedDescriptionKey: "Remux failed"])
+        }
+    }
+
+    public func stop() {
+        guard let ref = self.ref else { return }
+        FFmpegWrapper_Stop(ref)
+    }
+}
+
+// Helper box to wrap non-bit-pattern closure for Unmanaged
+private class Box<T> {
+    let value: T
+    init(_ value: T) { self.value = value }
 }
