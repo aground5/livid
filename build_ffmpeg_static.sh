@@ -276,7 +276,7 @@ echo "🏗️ Configuring FFmpeg..."
     --enable-demuxer=matroska,mov,m4v,mp4 \
     --enable-muxer=mov,mp4 \
     --enable-parser=vp9,av1,vp8,h264,hevc \
-    --enable-filter=tonemap,colorspace,scale,format,setpts,zscale,libplacebo \
+    --enable-filter=tonemap,colorspace,scale,format,setpts,zscale,libplacebo,fps,aresample,pad,crop \
     --enable-bsf=vp9_superframe_split,vp9_superframe,h264_mp4toannexb,hevc_mp4toannexb \
     --enable-protocol=file \
     --enable-videotoolbox \

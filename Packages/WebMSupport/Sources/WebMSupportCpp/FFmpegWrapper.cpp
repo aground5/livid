@@ -38,17 +38,15 @@ static int init_filter_graph(AVFilterGraph **graph, AVFilterContext **src,
   }
 
   snprintf(args, sizeof(args),
-           "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/"
-           "%d:color_range=%d:colorspace=%d:color_primaries=%d:color_trc=%d",
+           "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
            dec_ctx->width, dec_ctx->height, dec_ctx->pix_fmt,
            dec_ctx->time_base.num, dec_ctx->time_base.den,
-           dec_ctx->sample_aspect_ratio.num, dec_ctx->sample_aspect_ratio.den,
-           dec_ctx->color_range, dec_ctx->colorspace, dec_ctx->color_primaries,
-           dec_ctx->color_trc);
+           dec_ctx->sample_aspect_ratio.num, dec_ctx->sample_aspect_ratio.den);
 
-  // Build complete filter string: buffer -> user filters -> buffersink
-  std::string full_descr = std::string("buffer=") + args + "[in];[in]" +
-                           filters_descr + "[out];[out]buffersink";
+  // Build complete filter string.
+  // We use [in] as input label and [out] as output label for the user-provided filters.
+  std::string full_descr = std::string("buffer=") + args + " [in]; [in] " +
+                           filters_descr + " [out]; [out] buffersink";
 
   AVFilterInOut *inputs = nullptr;
   AVFilterInOut *outputs = nullptr;
@@ -336,7 +334,7 @@ bool FFmpegWrapper::exportToMov(const char *outputPath, double startTime,
   settings.profile = -1;
   settings.swsFlags = SWS_BICUBIC;
   settings.x265Params =
-      "keyint=60:bframes=4:b-adapt=2:b-pyramid=1:temporal-layers=3";
+      "keyint=60:min-keyint=60:scenecut=0:bframes=4:b-adapt=2:b-pyramid=1:temporal-layers=3";
   settings.preset = "medium";
   settings.crf = "18";
   settings.timescale = 240000;
@@ -363,7 +361,7 @@ bool FFmpegWrapper::exportToMovExt(const char *outputPath, double startTime,
   settings.profile = -1;
   settings.swsFlags = SWS_BICUBIC;
   settings.x265Params =
-      "keyint=60:bframes=4:b-adapt=2:b-pyramid=1:temporal-layers=3";
+      "keyint=60:min-keyint=60:scenecut=0:bframes=4:b-adapt=2:b-pyramid=1:temporal-layers=3";
   settings.preset = "medium";
   settings.crf = "18";
   settings.timescale = 240000;
@@ -638,6 +636,18 @@ bool FFmpegWrapper::transcodeInternal(const char *outputPath,
   bool is_hdr = (m_dec_ctx->color_trc == AVCOL_TRC_SMPTE2084 ||
                  m_dec_ctx->color_trc == AVCOL_TRC_ARIB_STD_B67);
 
+  // FPS Normalization: If source is 29.97 or 59.94, round to 30 or 60
+  // while ensuring macOS live wallpaper compatibility.
+  double input_fps = av_q2d(input_frame_rate);
+  double target_fps = std::round(input_fps);
+  bool needs_fps_fix = std::abs(input_fps - target_fps) > 0.001 &&
+                       std::abs(input_fps - target_fps) < 0.1;
+  std::string fps_filter = "";
+  if (needs_fps_fix && target_fps > 0) {
+    fps_filter = "fps=fps=" + std::to_string((int)target_fps);
+    printf("[FFmpegWrapper] Normalizing FPS: %f -> %f\n", input_fps, target_fps);
+  }
+
   if (settings.useFilterGraph) {
     if (is_hdr || settings.tonemap) {
       // HDR to SDR Tone Mapping with proper color space conversion
@@ -675,9 +685,25 @@ bool FFmpegWrapper::transcodeInternal(const char *outputPath,
     }
   }
 
-  if (filter_descr != "null") {
+  if (filter_descr != "null" || !fps_filter.empty()) {
+    std::string final_filter = filter_descr;
+    if (final_filter == "null")
+      final_filter = "";
+
+    // Join fps_filter and other filters properly
+    if (!fps_filter.empty()) {
+      if (!final_filter.empty()) {
+        final_filter = fps_filter + "," + final_filter;
+      } else {
+        final_filter = fps_filter;
+      }
+    }
+    
+    if (final_filter.empty())
+        final_filter = "null";
+
     if (init_filter_graph(&filter_graph, &filt_src, &filt_sink,
-                          filter_descr.c_str(), m_dec_ctx, enc_ctx) < 0) {
+                          final_filter.c_str(), m_dec_ctx, enc_ctx) < 0) {
       printf("[FFmpegWrapper] Error: Failed to initialize filter graph\n");
       // Fallback to null or fail
     }
