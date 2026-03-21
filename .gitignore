@@ -71,6 +71,7 @@ helper_tester
 
 # Managed Local Packages
 Packages/YouTubeKit
+Packages/cpython-*
 
 # FFmpeg Build artifacts
 src/
@@ -85,4 +86,4 @@ ffmpeg_install/
 .idea/
 
 # Local scripts / logs
-scripts/
+/scripts/
