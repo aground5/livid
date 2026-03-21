@@ -512,10 +512,41 @@ private struct YouTubeInfoSection: View {
                     .buttonStyle(.bordered)
                     .controlSize(.small)
             }
+            
+            if download.totalBytes > 0 || download.speedBytesPerSecond > 0 || download.etaSeconds != nil {
+                HStack(spacing: 8) {
+                    if download.totalBytes > 0 {
+                        Text("\(formattedBytes(download.downloadedBytes)) / \(formattedBytes(download.totalBytes))")
+                    }
+                    
+                    if download.speedBytesPerSecond > 0 {
+                        Text("\(formattedBytes(Int64(download.speedBytesPerSecond)))/s")
+                    }
+                    
+                    if let etaSeconds = download.etaSeconds {
+                        Text("ETA \(formattedETA(etaSeconds))")
+                    }
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+            }
         }
         .padding(12)
         .background(Color.secondary.opacity(0.1))
         .cornerRadius(8)
+    }
+    
+    private func formattedBytes(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+    
+    private func formattedETA(_ seconds: Double) -> String {
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = seconds >= 3600 ? [.hour, .minute, .second] : [.minute, .second]
+        formatter.unitsStyle = .abbreviated
+        formatter.zeroFormattingBehavior = [.pad]
+        return formatter.string(from: seconds) ?? "--"
     }
     
     private func errorView(_ download: DownloadState) -> some View {

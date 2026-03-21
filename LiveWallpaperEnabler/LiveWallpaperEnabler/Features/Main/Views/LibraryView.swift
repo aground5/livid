@@ -270,8 +270,11 @@ private struct LiveThumbnailView: View {
         guard !isGenerating else { return }
         isGenerating = true
         
+        // Capture isolation-sensitive values before entering detached task
+        let videoURL = item.fileURL
+        
         Task.detached(priority: .background) {
-            let asset = AVURLAsset(url: item.fileURL)
+            let asset = AVURLAsset(url: videoURL)
             let generator = AVAssetImageGenerator(asset: asset)
             generator.appliesPreferredTrackTransform = true
             generator.maximumSize = CGSize(width: 640, height: 360) 

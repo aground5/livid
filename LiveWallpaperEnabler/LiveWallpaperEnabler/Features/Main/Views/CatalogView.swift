@@ -60,11 +60,14 @@ struct CatalogView: View {
                 ZStack(alignment: .bottomTrailing) {
                     Group {
                         if let asset = currentWallpaper {
-                            let thumbURL = aerialService.systemThumbnailURL(for: asset.id)
-                            if let image = NSImage(contentsOf: thumbURL) {
-                                Image(nsImage: image)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
+                            if let thumbURL = aerialService.systemThumbnailURL(for: asset.id) {
+                                AsyncImage(url: thumbURL) { image in
+                                    image.resizable()
+                                         .aspectRatio(contentMode: .fill)
+                                } placeholder: {
+                                    ProgressView().controlSize(.small)
+                                }
+                                .frame(width: 280, height: 160)
                             } else {
                                 Color.gray.opacity(0.1)
                                     .overlay(Image(systemName: "photo").foregroundStyle(.secondary))
@@ -281,12 +284,14 @@ struct AssetThumbnail: View {
         
         VStack(alignment: .center, spacing: 8) {
             ZStack(alignment: .bottomLeading) {
-                let thumbURL = aerialService.systemThumbnailURL(for: asset.id)
-                if let image = NSImage(contentsOf: thumbURL) {
-                    Image(nsImage: image)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 170, height: 100)
+                if let thumbURL = aerialService.systemThumbnailURL(for: asset.id) {
+                    AsyncImage(url: thumbURL) { image in
+                        image.resizable()
+                             .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Color.gray.opacity(0.1)
+                    }
+                    .frame(width: 170, height: 100)
                 } else {
                     Rectangle().fill(Color.gray.opacity(0.2))
                         .overlay(Image(systemName: "photo").font(.caption).foregroundStyle(.secondary))
@@ -350,7 +355,7 @@ struct AssetThumbnail: View {
                         duration: 0,
                         catalogAssetID: asset.id,
                         absolutePath: videoURL.path,
-                        absoluteThumbnailPath: FileManager.default.fileExists(atPath: thumbURL.path) ? thumbURL.path : nil
+                        absoluteThumbnailPath: thumbURL?.path
                     )
                     onRegister(item)
                 } label: {

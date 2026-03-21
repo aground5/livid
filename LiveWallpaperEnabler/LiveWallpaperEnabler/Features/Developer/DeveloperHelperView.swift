@@ -3,11 +3,17 @@ import UniformTypeIdentifiers
 
 struct DeveloperHelperView: View {
     @State private var statusMessage: String = "Ready"
+    @State private var isCheckingHealth = false
     
     var body: some View {
         Form {
             Section("Developer Tools") {
-                Text("Developer helper tools and tests go here.")
+                Button(isCheckingHealth ? "Checking Helper..." : "Check Helper Connection") {
+                    Task {
+                        await checkHelperConnection()
+                    }
+                }
+                .disabled(isCheckingHealth)
             }
             
             Section("Status") {
@@ -18,6 +24,18 @@ struct DeveloperHelperView: View {
             }
         }
         .padding()
+    }
+    
+    @MainActor
+    private func checkHelperConnection() async {
+        isCheckingHealth = true
+        defer { isCheckingHealth = false }
+        
+        do {
+            statusMessage = try await HelperServiceConnection.shared.checkHealth()
+        } catch {
+            statusMessage = "Helper check failed: \(error.localizedDescription)"
+        }
     }
 }
 
