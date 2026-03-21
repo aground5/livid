@@ -336,7 +336,7 @@ bool FFmpegWrapper::exportToMov(const char *outputPath, double startTime,
   settings.profile = -1;
   settings.swsFlags = SWS_BICUBIC;
   settings.x265Params =
-      "bframes=4:b-adapt=2:b-pyramid=1:temporal-layers=3";
+      "keyint=60:bframes=4:b-adapt=2:b-pyramid=1:temporal-layers=3";
   settings.preset = "medium";
   settings.crf = "18";
   settings.timescale = 240000;
@@ -363,7 +363,7 @@ bool FFmpegWrapper::exportToMovExt(const char *outputPath, double startTime,
   settings.profile = -1;
   settings.swsFlags = SWS_BICUBIC;
   settings.x265Params =
-      "bframes=4:b-adapt=2:b-pyramid=1:temporal-layers=3";
+      "keyint=60:bframes=4:b-adapt=2:b-pyramid=1:temporal-layers=3";
   settings.preset = "medium";
   settings.crf = "18";
   settings.timescale = 240000;
