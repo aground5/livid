@@ -30,7 +30,7 @@ Unlike simple video wallpaper apps that run an overlay window, this tool **patch
 *   **Native Aerial Injection**: Parses and patches MOV atoms (`moov`, `trak`, `csgm`, `sgpd`, `tapt`) to make custom videos recognized by macOS as official dynamic wallpapers.
 *   **Optimal Aerial Transcoding**: Includes a custom-built static FFmpeg engine (`WebMSupport`) that converts videos to the specific **10-bit HEVC** format and GOP structure required by the macOS Lock Screen.
 *   **Smart Quality Engine**: Automatically detects HDR, Wide Color (P3), and High Chroma content, applying intelligent tone-mapping or 4:4:4 downsampling strategies.
-*   **Integrated YouTube Downloader**: Fetches videos up to **8K HDR** using a bundled `yt-dlp` binary and `YouTubeKit`, with automatic metadata extraction.
+*   **Integrated YouTube Downloader**: Fetches videos up to **8K HDR** using the bundled standalone `yt-dlp` runtime, with automatic metadata extraction.
 *   **System Catalog Management**: Modifies the system's `entries.json` manifest to create custom categories and register assets directly into the macOS Wallpaper settings.
 *   **XPC Helper Architecture**: Uses a privileged XPC Helper to handle heavy tasks (FFmpeg transcoding, binary execution) without blocking the main UI thread.
 
@@ -42,7 +42,7 @@ Unlike simple video wallpaper apps that run an overlay window, this tool **patch
 *   **Video Core**: `AVFoundation`, `VideoToolbox`, and a custom C++ bridge to `FFmpeg` (libavcodec, libx265, libplacebo).
 *   **Parsing**: Custom Swift-based QuickTime Atom Parser (`QtParser`) for binary manipulation of MOV headers.
 *   **Networking**: `Hummingbird` (Local Asset Server) & `NSXPCConnection`.
-*   **Dependencies**: `YouTubeKit`, `yt-dlp`, `deno` (for JS execution).
+*   **Dependencies**: bundled standalone `yt-dlp`, packaged Python runtime.
 
 ---
 
@@ -104,7 +104,7 @@ Unlike simple video wallpaper apps that run an overlay window, this tool **patch
 │   └── LiveWallpaperHelper # XPC Service (Privileged operations, BinaryManager)
 ├── Packages                # Local Swift Packages
 │   ├── WebMSupport         # C++ Bridge for FFmpeg & Transcoding
-│   └── YouTubeKit          # YouTube metadata & extraction (cloned via make)
+│   └── cpython-3.13.9-macos-aarch64-none  # packaged standalone Python + yt-dlp runtime
 └── Makefile                # Main build script for ffmpeg, deps, and Xcode
 ```
 
@@ -125,7 +125,7 @@ This project is licensed under the MIT License - see the `LICENSE` file for deta
 **Note on Dependencies**:
 *   **FFmpeg** is licensed under LGPL/GPL.
 *   **yt-dlp** is Unlicense/Public Domain.
-*   **YouTubeKit** is MIT Licensed.
+*   **yt-dlp** is released under the Unlicense.
 
 ---
 

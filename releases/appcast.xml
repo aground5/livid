@@ -3,13 +3,37 @@
     <channel>
         <title>Livid</title>
         <item>
+            <title>2026.03.21</title>
+            <pubDate>Sat, 21 Mar 2026 23:25:34 +0900</pubDate>
+            <sparkle:version>3</sparkle:version>
+            <sparkle:shortVersionString>2026.03.21</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/aground5/livid-community/releases/download/v2026.03.21/livid-macos-arm64-2026.03.21.dmg" length="53163113" type="application/octet-stream" sparkle:edSignature="jQQt5H35FzKlNyHtSCKvmq90V+HQCl9ch7JxJwiWYTErSSRiRTRzv51vs5OrVxf8GLlP3th5eFLqMcykfUtQDA=="/>
+            <sparkle:deltas>
+                <enclosure url="https://github.com/aground5/livid-community/releases/download/v2026.03.21/Livid3-1.delta" sparkle:deltaFrom="1" length="24339886" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="sLhrkgphU/YG3++mn8fGcxwe0wgNzE0xlvOnLgMSZ/qXYff/5AuWklJkssTO6dBDmA6BwraVsAvC9pGCJaBKAQ=="/>
+            </sparkle:deltas>
+        </item>
+        <item>
+            <title>2026.03.13</title>
+            <pubDate>Fri, 13 Mar 2026 09:29:14 +0900</pubDate>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>2026.03.13</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/aground5/livid-community/releases/download/v2026.03.21/livid-macos-arm64-2026.03.13.dmg" length="53326769" type="application/octet-stream" sparkle:edSignature="7M48/zqYkq13ES1LjUBquCO7YuEh/RlI2yS3/2cvXfUgOU4GgXzxoD9mICIuZxGs6J+13Li7LmlIna1y6zPoDg=="/>
+            <sparkle:deltas>
+                <enclosure url="https://github.com/aground5/livid-community/releases/download/v2026.03.13/Livid2-1.delta" sparkle:deltaFrom="1" length="16498" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="ht9aG7Y85yQS8MnjgN/WPGV+/AsEZEoq+6OUyanYVURv4s2MCVrwbP1SA0c28SdzxZeQej71Z0dnGKSRLkKPAQ=="/>
+            </sparkle:deltas>
+        </item>
+        <item>
             <title>2026.02.28</title>
             <pubDate>Sat, 28 Feb 2026 18:14:27 +0900</pubDate>
             <sparkle:version>1</sparkle:version>
             <sparkle:shortVersionString>2026.02.28</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://getlivid.app/releases/livid-macos-arm64-2026.02.28.dmg" length="56593175" type="application/octet-stream" sparkle:edSignature="Gddszrq9ebMiStV+Xi0aFAe7RNdLNWqm7N6bBdpACc3n2r6rftxow6sim5xBZBzh3ZtgBWT2n+6D4wztpnjuAg=="/>
+            <enclosure url="https://github.com/aground5/livid-community/releases/download/v2026.03.21/livid-macos-arm64-2026.02.28.dmg" length="58571783" type="application/octet-stream" sparkle:edSignature="DHhilmg+59aBzjnvA2GIILmptsSRUzl5B80XWkea1MR4JpVxkwlXvBaVDQAxVbihXVdSZT72x6W3vn39ZkkjCQ=="/>
         </item>
     </channel>
 </rss>

@@ -14,6 +14,19 @@ INCLUDE_DIR  := $(BUILD_DIR)/include
 # Parallel jobs used for make/ninja
 JOBS := $(shell sysctl -n hw.ncpu)
 
+# Code Signing Configuration (Paid Developer)
+# Replace YOUR_TEAM_ID with your actual 10-character Team ID from developer.apple.com
+DEVELOPMENT_TEAM := KUJY2K5BCW
+CODE_SIGN_STYLE  := Automatic
+CODE_SIGN_IDENTITY := Developer ID Application
+NOTARY_PROFILE := notary-livid
+
+# Python Standalone Runtime Configuration
+PYTHON_VERSION := 3.13.9
+PYTHON_DIST    := cpython-3.13.9-macos-aarch64-none
+PYTHON_ROOT    := $(PROJECT_ROOT)/Packages/$(PYTHON_DIST)
+PYTHON_BIN     := $(PYTHON_ROOT)/bin/python3
+
 # Environment Variables
 export PATH := $(BIN_DIR):$(PATH)
 export PKG_CONFIG_PATH := $(LIB_DIR)/pkgconfig:/opt/homebrew/lib/pkgconfig:$(PKG_CONFIG_PATH)
@@ -30,9 +43,6 @@ REPO_X265       := https://bitbucket.org/multicoreware/x265_git.git
 REPO_DAV1D      := https://code.videolan.org/videolan/dav1d.git
 REPO_LIBPLACEBO := https://github.com/haasn/libplacebo.git
 REPO_FFMPEG     := https://git.ffmpeg.org/ffmpeg.git
-REPO_YOUTUBEKIT := https://github.com/alexeichhorn/YouTubeKit.git
-COMMIT_YOUTUBEKIT := 068403f2b7523c7620eab257e64402f722821e05
-
 # Additional Dependencies for libplacebo (Static Build)
 REPO_LCMS2          := https://github.com/mm2/Little-CMS.git
 REPO_VULKAN_HEADERS := https://github.com/KhronosGroup/Vulkan-Headers.git
@@ -45,7 +55,7 @@ REPO_SHADERC        := https://github.com/google/shaderc.git
 
 .PHONY: all clean clean-all dirs zimg x264 x265 dav1d lcms2 vulkan-headers vulkan shaderc libplacebo ffmpeg copy-framework \
         clean-zimg clean-x264 clean-x265 clean-dav1d clean-lcms2 clean-vulkan-headers clean-vulkan clean-shaderc clean-libplacebo clean-ffmpeg \
-        clean-xcode-cache resolve-deps build-xcode build-release release-dmg release-all appcast run
+        clean-xcode-cache resolve-deps build-xcode build-release release-dmg release-all appcast run setup-python
 
 dirs:
 	@mkdir -p $(SRC_DIR)
@@ -478,28 +488,50 @@ clean-xcode-cache:
 	rm -rf $(XCODE_PROJ)/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 	rm -rf $(XCODE_PROJ)/project.xcworkspace/xcshareddata/swiftpm/configuration
 
-resolve-deps: clean-xcode-cache
-	@echo "🔍 Checking YouTubeKit..."
-	@if [ ! -d "$(PROJECT_ROOT)/Packages/YouTubeKit" ] || [ -z "$$(ls -A $(PROJECT_ROOT)/Packages/YouTubeKit)" ]; then \
-		echo "📥 Cloning YouTubeKit..."; \
-		rm -rf $(PROJECT_ROOT)/Packages/YouTubeKit; \
-		git clone $(REPO_YOUTUBEKIT) $(PROJECT_ROOT)/Packages/YouTubeKit && \
-		cd $(PROJECT_ROOT)/Packages/YouTubeKit && git checkout $(COMMIT_YOUTUBEKIT); \
-	fi
+resolve-deps:
 	@echo "📦 Resolving Swift Package dependencies..."
 	xcodebuild -resolvePackageDependencies -project $(XCODE_PROJ)
 
-build-xcode: copy-framework resolve-deps
+setup-python:
+	@echo "🐍 Setting up standalone Python runtime $(PYTHON_VERSION) using uv..."
+	@mkdir -p $(PROJECT_ROOT)/Packages
+	@if [ ! -f $(PYTHON_BIN) ]; then \
+		echo "🧊 Downloading and installing Python distribution via uv..."; \
+		uv python install $(PYTHON_VERSION) || true; \
+		UV_PYTHON_BIN=$$(uv python find $(PYTHON_VERSION)); \
+		PYTHON_REAL_DIR=$$(dirname $$(dirname $$UV_PYTHON_BIN)); \
+		echo "📦 Copying runtime from $$PYTHON_REAL_DIR to $(PYTHON_ROOT)..."; \
+		rm -rf $(PYTHON_ROOT); \
+		mkdir -p $(PYTHON_ROOT); \
+		cp -Rf $$PYTHON_REAL_DIR/. $(PYTHON_ROOT)/; \
+		echo "🔓 Unlocking environment (removing EXTERNALLY-MANAGED)..."; \
+		find $(PYTHON_ROOT) -name "EXTERNALLY-MANAGED" -delete; \
+		echo "📥 Installing yt-dlp into standalone environment..."; \
+		$(PYTHON_BIN) -m pip install yt-dlp; \
+	else \
+		echo "✅ Python runtime already exists at $(PYTHON_ROOT)"; \
+	fi
+
+build-xcode: setup-python copy-framework resolve-deps
 	@echo "🏗️ Building Xcode project (Debug)..."
 	xcodebuild -project $(XCODE_PROJ) -scheme $(XCODE_SCHEME) -configuration Debug \
 		-skipPackagePluginValidation -disableAutomaticPackageResolution \
 		SYMROOT=$(XCODE_BUILD_DIR) build
 
-build-release: copy-framework resolve-deps
+build-release: setup-python copy-framework resolve-deps
 	@echo "🏗️ Building Xcode project (Release)..."
 	xcodebuild -project $(XCODE_PROJ) -scheme $(XCODE_SCHEME) -configuration Release \
 		-skipPackagePluginValidation -disableAutomaticPackageResolution \
 		SYMROOT=$(XCODE_BUILD_DIR) build
+	@# Find all Mach-O binaries and libraries to sign them individually
+	@find "$(RELEASE_APP_PATH)" -type f \( -perm +111 -o -name "*.dylib" -o -name "*.so" \) | while read -r binary; do \
+		if file "$$binary" | grep -q "Mach-O"; then \
+			echo "  Signing $$binary"; \
+			codesign --force --options=runtime --timestamp --sign "$(CODE_SIGN_IDENTITY)" "$$binary"; \
+		fi \
+	done
+	@echo "🖋️ Deep signing the App bundle..."
+	codesign --force --deep --options=runtime --timestamp --sign "$(CODE_SIGN_IDENTITY)" "$(RELEASE_APP_PATH)"
 
 release-dmg: build-release
 	@echo "📦 Packaging DMG with create-dmg..."
@@ -508,19 +540,6 @@ release-dmg: build-release
 	@mkdir -p /tmp/livid-dmg-source
 	@mkdir -p $(RELEASES_DIR)
 	@cp -R $(RELEASE_APP_PATH) /tmp/livid-dmg-source/
-	@# Generate user-friendly help script
-	@FIX_SCRIPT_NAME="실행이_안될_때_클릭하세요.command"; \
-	FIX_SCRIPT_PATH="/tmp/livid-dmg-source/$$FIX_SCRIPT_NAME"; \
-	echo '#!/bin/bash' > "$$FIX_SCRIPT_PATH"; \
-	echo 'APP_PATH="/Applications/Livid.app"' >> "$$FIX_SCRIPT_PATH"; \
-	echo 'if [ ! -d "$$APP_PATH" ]; then' >> "$$FIX_SCRIPT_PATH"; \
-	echo '  osascript -e "display dialog \"Livid 앱이 /Applications 폴더에 없습니다.\n먼저 앱을 드래그하여 설치해주세요.\" buttons {\"확인\"} default button \"확인\" with icon stop"' >> "$$FIX_SCRIPT_PATH"; \
-	echo 'else' >> "$$FIX_SCRIPT_PATH"; \
-	echo '  codesign --force --deep --sign - "$$APP_PATH"' >> "$$FIX_SCRIPT_PATH"; \
-	echo '  xattr -rd com.apple.quarantine "$$APP_PATH"' >> "$$FIX_SCRIPT_PATH"; \
-	echo '  osascript -e "display dialog \"성공적으로 복구되었습니다!\n이제 앱을 실행할 수 있습니다.\" buttons {\"확인\"} default button \"확인\" with icon note"' >> "$$FIX_SCRIPT_PATH"; \
-	echo 'fi' >> "$$FIX_SCRIPT_PATH"; \
-	chmod +x "$$FIX_SCRIPT_PATH"
 	@# Use create-dmg for professional styling
 	@create-dmg \
 		--volname "$(APP_NAME)" \
@@ -531,7 +550,6 @@ release-dmg: build-release
 		--icon "$(APP_NAME).app" 128 330 \
 		--hide-extension "$(APP_NAME).app" \
 		--app-drop-link 384 330 \
-		--icon "실행이_안될_때_클릭하세요.command" 384 120 \
 		--format UDZO \
 		"$(PROJECT_ROOT)/$(APP_NAME).dmg" \
 		"/tmp/livid-dmg-source/"
@@ -552,8 +570,22 @@ appcast:
 	$(GEN_APPCAST) --download-url-prefix https://github.com/aground5/livid-community/releases/download/v$${VERSION}/ $(RELEASES_DIR)
 	@echo "✅ Appcast updated in $(RELEASES_DIR)/appcast.xml"
 
-release-all: release-dmg appcast
-	@echo "🚀 Full release build & appcast generation completed!"
+notarize-dmg: release-dmg
+	@echo "📡 Submitting DMG for notarization..."
+	@xcrun notarytool submit "$(PROJECT_ROOT)/$(APP_NAME).dmg" \
+		--keychain-profile "$(NOTARY_PROFILE)" \
+		--wait
+	@echo "🔗 Stapling notarization ticket..."
+	@xcrun stapler staple "$(PROJECT_ROOT)/$(APP_NAME).dmg"
+	@# Update the archived DMG with the stapled one
+	@VERSION=$$(defaults read $(RELEASE_APP_PATH)/Contents/Info.plist CFBundleShortVersionString); \
+	ARCH=$$(uname -m); \
+	FINAL_DMG=$(RELEASES_DIR)/livid-macos-$${ARCH}-$${VERSION}.dmg; \
+	cp $(PROJECT_ROOT)/$(APP_NAME).dmg $$FINAL_DMG; \
+	echo "✅ Notarization and Stapling complete!"
+
+release-all: build-release notarize-dmg appcast
+	@echo "🚀 Full notarized release build & appcast generation completed!"
 
 run: build-xcode
 	@echo "🚀 Launching Livid..."

@@ -30,7 +30,7 @@
 *   **네이티브 Aerial 주입 (Native Aerial Injection)**: MOV 파일의 Atom 구조(`moov`, `trak`, `csgm`, `sgpd`, `tapt`)를 분석하고 패치하여, 커스텀 비디오를 macOS 공식 다이내믹 월페이퍼로 인식되게 만듭니다.
 *   **최적화된 Aerial 트랜스코딩 (Optimal Aerial Transcoding)**: 커스텀 빌드된 정적 FFmpeg 엔진(`WebMSupport`)을 내장하여, macOS 잠금 화면 재생에 필수적인 **10-bit HEVC** 포맷과 GOP 구조로 완벽하게 변환합니다.
 *   **스마트 화질 엔진 (Smart Quality Engine)**: HDR, 광색역(P3), High Chroma 콘텐츠를 자동으로 감지하고, 지능형 톤매핑(Tone-mapping) 또는 4:4:4 다운샘플링 전략을 적용합니다.
-*   **통합 YouTube 다운로더**: 번들링된 `yt-dlp` 바이너리와 `YouTubeKit`을 통해 최대 **8K HDR** 영상을 메타데이터와 함께 자동으로 다운로드합니다.
+*   **통합 YouTube 다운로더**: 번들링된 standalone `yt-dlp` 런타임으로 최대 **8K HDR** 영상을 메타데이터와 함께 자동으로 다운로드합니다.
 *   **시스템 카탈로그 관리**: 시스템의 `entries.json` 매니페스트를 수정하여, 사용자 정의 카테고리를 생성하고 macOS 배경화면 설정에 에셋을 직접 등록합니다.
 *   **XPC 헬퍼 아키텍처**: 권한이 필요한 작업(FFmpeg 트랜스코딩, 바이너리 실행 등)을 별도의 XPC 헬퍼 서비스로 분리하여 메인 UI 스레드의 차단을 방지하고 안정성을 높였습니다.
 
@@ -42,7 +42,7 @@
 *   **비디오 코어**: `AVFoundation`, `VideoToolbox`, 커스텀 C++ 브릿지를 통한 `FFmpeg` (libavcodec, libx265, libplacebo).
 *   **파싱 (Parsing)**: MOV 헤더의 바이너리 조작을 위해 Swift로 직접 구현한 QuickTime Atom Parser (`QtParser`).
 *   **네트워킹**: `Hummingbird` (로컬 에셋 서버) & `NSXPCConnection`.
-*   **의존성**: `YouTubeKit`, `yt-dlp`, `deno` (JS 실행 환경).
+*   **의존성**: 번들된 standalone `yt-dlp`, 패키징된 Python 런타임.
 
 ---
 
@@ -104,7 +104,7 @@
 │   └── LiveWallpaperHelper # XPC 서비스 (특권 작업, 바이너리 매니저)
 ├── Packages                # 로컬 Swift 패키지 저장소
 │   ├── WebMSupport         # FFmpeg 및 트랜스코딩용 C++ 브릿지
-│   └── YouTubeKit          # YouTube 메타데이터 추출 (make 실행 시 클론됨)
+│   └── cpython-3.13.9-macos-aarch64-none  # 패키징된 standalone Python + yt-dlp 런타임
 └── Makefile                # FFmpeg 초기화 및 프로젝트 자동 빌드 스크립트
 ```
 
@@ -125,7 +125,7 @@
 **의존성 라이선스 참고**:
 *   **FFmpeg**: LGPL/GPL 라이선스를 따릅니다.
 *   **yt-dlp**: Unlicense/Public Domain입니다.
-*   **YouTubeKit**: MIT 라이선스를 따릅니다.
+*   **yt-dlp**: Unlicense를 따릅니다.
 
 ---
 
