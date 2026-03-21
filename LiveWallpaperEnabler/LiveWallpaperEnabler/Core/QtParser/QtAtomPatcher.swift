@@ -252,7 +252,7 @@ class AtomPatcher {
         
         // Language: handle String vs Int
         var langInt: UInt16 = 0
-        if let lStr = f["language"] as? String {
+        if f["language"] is String {
              // Basic inverse mapping or 0
              // TODO: implement proper map
              langInt = 0 
@@ -480,7 +480,7 @@ class AtomPatcher {
         } else if gType == "tscl" {
              for e in entries {
                  if defLen == 0 { writer.writeUInt32(20) }
-                 if let d = e as? [String: Any] {
+                  if e is [String: Any] {
                      // Write fields
                      // TODO: Ensure validation
                      writer.writeBytes(Data(count: 20)) // Placeholder if data missing, or look at dict

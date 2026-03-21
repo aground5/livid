@@ -69,10 +69,11 @@ class WallpaperStore {
                 }
             }
             
-            // 2. Generate Thumbnail Sync (First frame)
-            // Ideally this should be async or validated, but for now we try to ensure it exists.
+            // 2. Generate Thumbnail Async (First frame)
             let thumbDest = AppConfig.shared.thumbnailsDirectory.appendingPathComponent("\(id.uuidString).png")
-            generateThumbnail(source: destinationURL, dest: thumbDest)
+            Task.detached(priority: .background) {
+                await self.generateThumbnail(source: destinationURL, dest: thumbDest)
+            }
             
             // 3. Update DB
             let rawName = fileURL.deletingPathExtension().lastPathComponent // Fallback
@@ -244,7 +245,7 @@ class WallpaperStore {
                         
                         // Even if no thumbnail moved, try to generate one
                         if !fm.fileExists(atPath: newThumbRaw.path) {
-                            generateThumbnail(source: destURL, dest: newThumbRaw)
+                            await generateThumbnail(source: destURL, dest: newThumbRaw)
                         }
                         
                         let asset = AVURLAsset(url: destURL)
@@ -278,7 +279,7 @@ class WallpaperStore {
         }
     }
     
-    private func generateThumbnail(source: URL, dest: URL) {
+    private func generateThumbnail(source: URL, dest: URL) async {
         let asset = AVURLAsset(url: source)
         let gen = AVAssetImageGenerator(asset: asset)
         gen.appliesPreferredTrackTransform = true
@@ -286,16 +287,17 @@ class WallpaperStore {
         
         let time = CMTime(seconds: 0.1, preferredTimescale: 600)
         
-        // Synchronous generation for simplicity in this helper, wrapped in do-catch
-        try? {
-            let cgImage = try gen.copyCGImage(at: time, actualTime: nil)
-            let nsImage = NSImage(cgImage: cgImage, size: .zero)
+        do {
+            let image = try await gen.image(at: time).image
+            let nsImage = NSImage(cgImage: image, size: .zero)
             if let tiff = nsImage.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff) {
                 if let png = bitmap.representation(using: .png, properties: [:]) {
                     try png.write(to: dest)
                 }
             }
-        }()
+        } catch {
+            print("Failed to generate thumbnail for \(source.lastPathComponent): \(error)")
+        }
     }
     
     private func runOnMain(_ block: @escaping () -> Void) {

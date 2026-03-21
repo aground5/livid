@@ -140,6 +140,11 @@ protocol FFmpegProgressDelegate: Sendable {
 struct DownloadState: Sendable {
     var progress: Double = 0.0
     var status: String = ""
+    var phase: String = "idle"
+    var downloadedBytes: Int64 = 0
+    var totalBytes: Int64 = 0
+    var speedBytesPerSecond: Double = 0.0
+    var etaSeconds: Double? = nil
     var isDownloading: Bool = false
     var error: String? = nil
 }

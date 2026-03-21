@@ -3,7 +3,7 @@ import Foundation
 import os
 import VideoToolbox
 @preconcurrency import CoreVideo
-import WebMSupport
+@preconcurrency import WebMSupport
 
 enum VideoConversionError: LocalizedError {
     case conversionFailed(String)
@@ -29,8 +29,16 @@ class VideoConverterService {
     
     /// Converts a video file to a macOS-compatible MOV (H.264) using native AVFoundation/VideoToolbox.
     /// Used for fast preparation/preview. Supports Trimming.
-    func convertToNativelyPlayable(inputURL: URL, outputURL: URL, timeRange: CMTimeRange? = nil, forceFFmpeg: Bool = false, progressHandler: ((Double) -> Void)? = nil) async throws {
+    func convertToNativelyPlayable(inputURL: URL, outputURL: URL, timeRange: CMTimeRange? = nil, forceFFmpeg: Bool = false, progressHandler: (@Sendable (Double) -> Void)? = nil) async throws {
         let ext = inputURL.pathExtension.lowercased()
+        
+        if ext == "mp4" {
+            // Fast Path: For MP4, we try to remux (stream copy) to MOV to preserve quality and speed.
+            // As the user requested: "just reconstruct metadata with ffmpeg"
+            try await remuxWithFFmpeg(inputURL: inputURL, outputURL: outputURL, timeRange: timeRange, progressHandler: progressHandler)
+            return
+        }
+        
         if ext == "webm" || ext == "mkv" || forceFFmpeg {
             // Convert WebM/MKV or explicitly force FFmpeg to native MOV, applying trimming if timeRange is provided.
             try await prepareNativelyPlayableWithFFmpeg(inputURL: inputURL, outputURL: outputURL, timeRange: timeRange, progressHandler: progressHandler)
@@ -191,26 +199,66 @@ class VideoConverterService {
 
     /// Full Transcoding for Live Wallpaper Export (The Golden Formula).
     /// Always uses FFmpeg to ensure specific binary signaling (Temporal Layers, GOP) required by macOS.
-    func convertToLiveWallpaper(inputURL: URL, outputURL: URL, timeRange: CMTimeRange? = nil, strategy: TranscodeStrategy, progressHandler: ((Double) -> Void)? = nil) async throws {
+    func convertToLiveWallpaper(inputURL: URL, outputURL: URL, timeRange: CMTimeRange? = nil, strategy: TranscodeStrategy, progressHandler: (@Sendable (Double) -> Void)? = nil) async throws {
         Logger.video.info("Starting Golden Formula Export for: \(inputURL.lastPathComponent) with strategy: \(strategy.rawValue)")
         try await applyGoldenFormula(inputURL: inputURL, outputURL: outputURL, timeRange: timeRange, strategy: strategy, progressHandler: progressHandler)
     }
 
+    /// Lightweight remuxing (stream copy) from MP4 to MOV using FFmpeg.
+    private func remuxWithFFmpeg(inputURL: URL, outputURL: URL, timeRange: CMTimeRange? = nil, progressHandler: (@Sendable (Double) -> Void)? = nil) async throws {
+        let inputPath = inputURL.path
+        let startTime = timeRange?.start.seconds ?? 0
+        let endTime = timeRange.map { $0.start.seconds + $0.duration.seconds } ?? 0
+        
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let bridge = try FFmpegBridge(path: inputPath)
+                    
+                    var adjustedEndTime = endTime
+                    if adjustedEndTime > 0 && adjustedEndTime >= (bridge.duration - 0.1) {
+                         adjustedEndTime = 0
+                    }
+                    
+                    try bridge.remuxToMov(outputUrl: outputURL, startTime: startTime, endTime: adjustedEndTime) { progress in
+                        if Task.isCancelled {
+                            bridge.stop()
+                        }
+                        DispatchQueue.main.async {
+                            progressHandler?(progress)
+                        }
+                    }
+                    continuation.resume()
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+        progressHandler?(1.0)
+    }
+
     /// Converts a video file to a lightweight MOV for fast preview using FFmpeg.
-    private func prepareNativelyPlayableWithFFmpeg(inputURL: URL, outputURL: URL, timeRange: CMTimeRange? = nil, progressHandler: ((Double) -> Void)? = nil) async throws {
-        let bridge = try FFmpegBridge(path: inputURL.path)
+    private func prepareNativelyPlayableWithFFmpeg(inputURL: URL, outputURL: URL, timeRange: CMTimeRange? = nil, progressHandler: (@Sendable (Double) -> Void)? = nil) async throws {
+        let inputPath = inputURL.path
         let startTime = timeRange?.start.seconds ?? 0
         var endTime = timeRange.map { $0.start.seconds + $0.duration.seconds } ?? 0
-        
-        if endTime > 0 && endTime >= (bridge.duration - 0.1) {
-             endTime = 0
-        }
         
         // Execute on a dedicated background thread to prevent blocking Swift Concurrency pool
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    try bridge.prepareToMov(outputUrl: outputURL, startTime: startTime, endTime: endTime) { progress in
+                    let bridge = try FFmpegBridge(path: inputPath)
+                    
+                    // Adjust endTime if it's virtually the full duration (FFmpeg behavior)
+                    var adjustedEndTime = endTime
+                    if adjustedEndTime > 0 && adjustedEndTime >= (bridge.duration - 0.1) {
+                         adjustedEndTime = 0
+                    }
+                    
+                    try bridge.prepareToMov(outputUrl: outputURL, startTime: startTime, endTime: adjustedEndTime) { progress in
+                        if Task.isCancelled {
+                            bridge.stop()
+                        }
                         DispatchQueue.main.async {
                             progressHandler?(progress)
                         }
@@ -225,31 +273,35 @@ class VideoConverterService {
     }
 
     /// Full Transcoding with x265 and specific live wallpaper parameters.
-    private func applyGoldenFormula(inputURL: URL, outputURL: URL, timeRange: CMTimeRange? = nil, strategy: TranscodeStrategy, progressHandler: ((Double) -> Void)? = nil) async throws {
-        let bridge = try FFmpegBridge(path: inputURL.path)
+    private func applyGoldenFormula(inputURL: URL, outputURL: URL, timeRange: CMTimeRange? = nil, strategy: TranscodeStrategy, progressHandler: (@Sendable (Double) -> Void)? = nil) async throws {
+        let inputPath = inputURL.path
         let startTime = timeRange?.start.seconds ?? 0
-        var endTime = timeRange.map { $0.start.seconds + $0.duration.seconds } ?? 0
+        let endTime = timeRange.map { $0.start.seconds + $0.duration.seconds } ?? 0
         
-        if endTime > 0 && endTime >= (bridge.duration - 0.1) {
-             endTime = 0
-        }
-        
-        // Map Strategy to FFmpeg settings
         let tonemap = (strategy == .hdrTonemap10Bit || strategy == .advancedColorAndChroma)
-        let tenBit = true // All custom paths target 10-bit for quality
-        
-        let settings = FFmpegBridge.FFmpegTranscodeSettings(
-            startTime: startTime,
-            endTime: endTime,
-            tonemap: tonemap,
-            tenBit: tenBit
-        )
+        let tenBit = true
         
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
+                    let bridge = try FFmpegBridge(path: inputPath)
+                    
+                    var adjustedEndTime = endTime
+                    if adjustedEndTime > 0 && adjustedEndTime >= (bridge.duration - 0.1) {
+                         adjustedEndTime = 0
+                    }
+                    
+                    let settings = FFmpegBridge.FFmpegTranscodeSettings(
+                        startTime: startTime,
+                        endTime: adjustedEndTime,
+                        tonemap: tonemap,
+                        tenBit: tenBit
+                    )
+                    
                     try bridge.exportToMov(outputUrl: outputURL, settings: settings) { progress in
-                        // Future: Bridge will provide FFmpegMediaMetrics here
+                        if Task.isCancelled {
+                            bridge.stop()
+                        }
                         DispatchQueue.main.async {
                             progressHandler?(progress)
                         }

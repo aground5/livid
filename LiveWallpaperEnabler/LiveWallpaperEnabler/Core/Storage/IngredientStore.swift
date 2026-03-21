@@ -69,11 +69,9 @@ class IngredientStore {
     }
     
     private func verifyFiles() {
-        var changed = false
         for (index, ingredient) in ingredients.enumerated() {
             let exists = !ingredient.isOffline && !ingredient.isRemoteYouTube
             if previousExistenceStatus[ingredient.id] != exists {
-                changed = true
                 previousExistenceStatus[ingredient.id] = exists
                 // Mutate the array so SwiftUI detects the update
                 ingredients[index] = ingredient

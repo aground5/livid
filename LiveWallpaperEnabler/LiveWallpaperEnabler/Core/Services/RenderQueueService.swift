@@ -3,6 +3,7 @@ import AppKit
 import Observation
 import os
 
+@MainActor
 @Observable
 class RenderQueueService {
     static let shared = RenderQueueService()
@@ -12,6 +13,7 @@ class RenderQueueService {
     
     // Internal State
     private var isProcessing = false
+    private var currentTask: Task<Void, Never>?
     private let exporter = LiveWallpaperExporter()
     
     private init() {}
@@ -38,10 +40,15 @@ class RenderQueueService {
     
     func cancel(_ jobID: UUID) {
         if let index = jobs.firstIndex(where: { $0.id == jobID }) {
-            // If it's currently running, we need a way to stop the exporter (Task cancellation).
-            // For now, we'll mark it cancelled and the UI will reflect it. 
-            // Real cancellation requires Task storage which we can add.
             jobs[index].status = .cancelled
+            
+            // If this is the current job, cancel the task
+            // The exporter/converter will detect Task.isCancelled and stop the FFmpeg loop
+            if let current = currentTask, !current.isCancelled {
+                current.cancel()
+                currentTask = nil
+            }
+            
             Logger.video.info("Job cancelled: \(self.jobs[index].originalFilename)")
         }
     }
@@ -55,12 +62,11 @@ class RenderQueueService {
     private func processQueue() {
         guard !isProcessing else { return }
         
-        Task(priority: .userInitiated) { 
+        currentTask = Task(priority: .userInitiated) { 
             await self.runExecutionLoop()
         }
     }
     
-    @MainActor
     private func runExecutionLoop() async {
         isProcessing = true
         defer { isProcessing = false }
@@ -127,6 +133,12 @@ class RenderQueueService {
                     jobs[failIndex].status = .failed(error.localizedDescription)
                 }
             }
+            
+            // Double check if Task was cancelled between jobs
+            if Task.isCancelled {
+                break
+            }
         }
+        currentTask = nil
     }
 }

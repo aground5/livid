@@ -45,7 +45,7 @@ struct VideoMetadataAnalyzer {
         
         // 2. Codec & Profile & Color Space
         var codec = "Unknown"
-        var profile: String? = nil
+        let profile: String? = nil
         var colorSpace = "SDR"
         var bitDepth = 8
         var chromaSubsampling = "4:2:0"

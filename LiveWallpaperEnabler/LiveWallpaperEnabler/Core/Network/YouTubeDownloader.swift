@@ -1,18 +1,19 @@
 import Foundation
 import os
-import YouTubeKit
 
 enum YouTubeDownloadError: Error {
     case invalidURL
     case noStreamsFound
+    case missingStreamURL
     case downloadFailed(String)
 }
 
 struct YouTubeStreamOption: Identifiable, Hashable, Codable {
     let id: String
+    let formatID: String?
     let resolution: Int
     let fileExtension: String
-    let url: URL
+    let url: URL?
     let hasAudio: Bool
     let isNativelyPlayable: Bool
     let codec: String
@@ -44,55 +45,53 @@ class YouTubeDownloader {
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "LiveWallpaperEnabler", category: "YouTubeDownloader")
     
     func fetchMetadata(url: URL) async throws -> (YTDLPMetadata, [YouTubeStreamOption]) {
-        let video = YouTube(url: url)
+        let metadata = try await HelperServiceConnection.shared.fetchMetadata(url: url)
+        let streamOptions = mapStreams(from: metadata)
         
-        // Fetch metadata and streams
-        let metaOptional = try await video.metadata
-        let streamsResult = try await video.streams
+        logger.info("Fetched yt-dlp metadata for \(url.absoluteString, privacy: .public) with \(streamOptions.count) playable streams")
         
-        let title = metaOptional?.title ?? "Unknown"
-        let description = metaOptional?.description ?? ""
-        let thumbnail = metaOptional?.thumbnail?.url
-        
-        let dto = YTDLPMetadata(
-            id: url.absoluteString,
-            title: title,
-            description: description, 
-            webpage_url: url.absoluteString,
-            thumbnail: thumbnail?.absoluteString
-        )
-        
-        // Map streams to options
-        let streamOptions = streamsResult.compactMap { stream -> YouTubeStreamOption? in
-            guard let resolution = stream.videoResolution else { return nil } // Exclude audio-only for wallpaper
-            guard stream.includesVideoTrack else { return nil }
+        return (metadata, streamOptions)
+    }
+    
+    func benchmarkStreams(_ streams: [YouTubeStreamOption]) async -> [YouTubeStreamOption] {
+        return streams // No-op
+    }
+    
+    private func mapStreams(from metadata: YTDLPMetadata) -> [YouTubeStreamOption] {
+        let streamOptions = (metadata.formats ?? []).compactMap { format -> YouTubeStreamOption? in
+            guard format.hasVideo else { return nil }
+            guard format.resolution > 0 else { return nil }
+            guard let urlString = format.url, let url = URL(string: urlString) else { return nil }
             
-            let codec = stream.videoCodec.map { String(describing: $0) } ?? "unknown"
+            let formatID = format.format_id.isEmpty ? nil : format.format_id
+            let codec = normalizedCodec(from: format.vcodec)
             
             return YouTubeStreamOption(
-                id: UUID().uuidString,
-                resolution: resolution,
-                fileExtension: stream.fileExtension.rawValue,
-                url: stream.url,
-                hasAudio: stream.includesAudioTrack,
-                isNativelyPlayable: stream.isNativelyPlayable,
+                id: formatID ?? url.absoluteString,
+                formatID: formatID,
+                resolution: format.resolution,
+                fileExtension: format.ext,
+                url: url,
+                hasAudio: format.hasAudio,
+                isNativelyPlayable: format.isNativelyPlayable,
                 codec: codec,
-                bitrate: Double(stream.averageBitrate ?? stream.bitrate ?? 0),
-                isHDR: codec.lowercased().contains("hdr"), // naive fallback
-                isVP9: codec.lowercased().contains("vp9"),
+                bitrate: format.bitrate,
+                isHDR: format.isHDR,
+                isVP9: format.isVP9,
                 estimatedSpeed: nil
             )
-        }.sorted { 
+        }.sorted {
             if $0.resolution != $1.resolution {
                 return $0.resolution > $1.resolution
             }
             return ($0.bitrate ?? 0) > ($1.bitrate ?? 0)
         }
-            
-        return (dto, streamOptions)
+        
+        return streamOptions
     }
     
-    func benchmarkStreams(_ streams: [YouTubeStreamOption]) async -> [YouTubeStreamOption] {
-        return streams // No-op
+    private func normalizedCodec(from value: String?) -> String {
+        guard let value, !value.isEmpty else { return "unknown" }
+        return value.split(separator: ".").first.map(String.init) ?? value
     }
 }

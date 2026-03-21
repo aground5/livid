@@ -64,7 +64,7 @@ public struct YTDLPMetadata: Codable, Sendable {
     public let thumbnail: String?
     public let description: String?
 
-    // Add initializer for YouTubeKit
+    // Convenience initializer for locally synthesized metadata payloads.
     public init(id: String, title: String, description: String?, webpage_url: String, thumbnail: String?) {
         self.id = id
         self.title = title

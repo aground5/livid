@@ -1,5 +1,38 @@
 import Foundation
 import Observation
+import Combine
+import CoreGraphics
+
+// Private CGS APIs (SkyLight)
+@_silgen_name("CGSMainConnectionID")
+func CGSMainConnectionID() -> Int32
+
+@_silgen_name("CGSCopyManagedDisplaySpaces")
+func CGSCopyManagedDisplaySpaces(_ cid: Int32) -> CFArray
+
+@_silgen_name("CGSSpaceCopyName")
+func CGSSpaceCopyName(_ cid: Int32, _ sid: Int32) -> CFString?
+
+
+@_silgen_name("CGSManagedDisplaySetCurrentSpace")
+func CGSManagedDisplaySetCurrentSpace(_ cid: Int32, _ displayUUID: CFString, _ sid: Int32) -> Int32
+
+struct CGSTransitionSpec {
+    var unknown1: UInt32 = 0
+    var type: Int32
+    var option: Int32
+    var wid: Int32 = 0
+    var backColour: UnsafeMutablePointer<Float>? = nil
+}
+
+@_silgen_name("CGSNewTransition")
+func CGSNewTransition(_ cid: Int32, _ spec: UnsafePointer<CGSTransitionSpec>, _ handle: UnsafeMutablePointer<Int>) -> Int
+
+@_silgen_name("CGSInvokeTransition")
+func CGSInvokeTransition(_ cid: Int32, _ handle: Int, _ duration: Float) -> Int
+
+@_silgen_name("CGSReleaseTransition")
+func CGSReleaseTransition(_ cid: Int32, _ handle: Int) -> Int
 
 @Observable
 class AerialService {
@@ -37,9 +70,13 @@ class AerialService {
     private var systemThumbDir: URL {
         aerialsBaseURL.appendingPathComponent("aerials/thumbnails")
     }
+
+    private var loctablePath: URL {
+        stringsBundlePath.appendingPathComponent("Contents/Resources/Localizable.nocache.loctable")
+    }
     
     func loadManifest() {
-        fetchCurrentWallpaperID()
+        refreshSpaceStatus()
         loadLocalizedStrings()
         
         guard manifest == nil else { return }
@@ -66,26 +103,48 @@ class AerialService {
     }
     
     func loadLocalizedStrings() {
-        let fileManager = FileManager.default
+        // 1. Try to load from loctable first (macOS Sonoma and later)
+        if let data = try? Data(contentsOf: loctablePath),
+           let loctable = try? PropertyListSerialization.propertyList(from: data, options: PropertyListSerialization.ReadOptions(0), format: nil) as? [String: Any] {
+            
+            let preferredLanguages = Locale.preferredLanguages
+            var targetLang: String = "en"
+            let availableLangs = Array(loctable.keys)
+            
+            for lang in preferredLanguages {
+                let standardized = lang.replacingOccurrences(of: "-", with: "_")
+                if availableLangs.contains(standardized) {
+                    targetLang = standardized
+                    break
+                }
+                let langCode = String(standardized.split(separator: "_").first ?? "")
+                if availableLangs.contains(langCode) {
+                    targetLang = langCode
+                    break
+                }
+            }
+            
+            if let dict = loctable[targetLang] as? [String: String] {
+                self.localizedStrings = dict
+                print("Loaded \(dict.count) localized strings from Loctable for language: \(targetLang)")
+                return // Success!
+            }
+        }
         
-        // 1. Get available languages in the bundle
+        // 2. Fallback to old .strings way (Older macOS or if loctable fails)
+        let fileManager = FileManager.default
         guard let items = try? fileManager.contentsOfDirectory(atPath: stringsBundlePath.path) else { return }
         let availableLprojs = items.filter { $0.hasSuffix(".lproj") }.map { $0.replacingOccurrences(of: ".lproj", with: "") }
         
-        // 2. Find best match for system preferences
-        let preferredLanguages = Locale.preferredLanguages // e.g., ["ko-KR", "en-US"]
+        let preferredLanguages = Locale.preferredLanguages
         var targetLang: String = "en"
         
         for lang in preferredLanguages {
             let standardized = lang.replacingOccurrences(of: "-", with: "_")
-            
-            // Exact match (e.g., en_GB)
             if availableLprojs.contains(standardized) {
                 targetLang = standardized
                 break
             }
-            
-            // Language code match (e.g., ko for ko-KR)
             let langCode = String(standardized.split(separator: "_").first ?? "")
             if availableLprojs.contains(langCode) {
                 targetLang = langCode
@@ -93,44 +152,55 @@ class AerialService {
             }
         }
         
-        // 3. Load the file
         let stringsPath = stringsBundlePath.appendingPathComponent("\(targetLang).lproj/Localizable.nocache.strings")
-        
         if let data = try? Data(contentsOf: stringsPath),
            let dict = try? PropertyListSerialization.propertyList(from: data, options: PropertyListSerialization.ReadOptions(0), format: nil) as? [String: String] {
             self.localizedStrings = dict
-            print("Loaded \(dict.count) localized strings for language: \(targetLang)")
+            print("Loaded \(dict.count) localized strings from .strings for language: \(targetLang)")
         }
     }
     
     /// Updates strings files for en and ko languages
     private func updateStrings(key: String, value: String) {
+        // 1. Update .strings files if they exist or lproj directories exist
         let languages = ["en", "ko"]
         for lang in languages {
-            let url = stringsBundlePath.appendingPathComponent("\(lang).lproj/Localizable.nocache.strings")
+            let folderUrl = stringsBundlePath.appendingPathComponent("\(lang).lproj")
+            let fileUrl = folderUrl.appendingPathComponent("Localizable.nocache.strings")
+            
+            // Ensure folder exists for old way
+            if !FileManager.default.fileExists(atPath: folderUrl.path) {
+                try? FileManager.default.createDirectory(at: folderUrl, withIntermediateDirectories: true)
+            }
             
             var dict: [String: String] = [:]
-            
-            // 1. Load existing
-            if let data = try? Data(contentsOf: url),
+            if let data = try? Data(contentsOf: fileUrl),
                let existing = (try? PropertyListSerialization.propertyList(from: data, options: PropertyListSerialization.ReadOptions(0), format: nil)) as? [String: String] {
                 dict = existing
             }
-            
-            // 2. Update
             dict[key] = value
-            
-            // 3. Save
-            do {
-                let data = try PropertyListSerialization.data(fromPropertyList: dict, format: .binary, options: 0)
-                try data.write(to: url)
-                print("Updated localization key '\(key)' in \(lang).lproj")
-            } catch {
-                print("Failed to save strings for \(lang): \(error)")
+            if let data = try? PropertyListSerialization.data(fromPropertyList: dict, format: .binary, options: 0) {
+                try? data.write(to: fileUrl)
             }
         }
         
-        // Refresh current cache
+        // 2. Update .loctable if it exists (macOS Sonoma+)
+        if let data = try? Data(contentsOf: loctablePath),
+           var loctable = try? PropertyListSerialization.propertyList(from: data, options: PropertyListSerialization.ReadOptions(Int(PropertyListSerialization.MutabilityOptions.mutableContainers.rawValue)), format: nil) as? [String: Any] {
+            
+            // Update all available language sections in loctable to be safe
+            for lang in loctable.keys where lang != "LocProvenance" {
+                if var langDict = loctable[lang] as? [String: String] {
+                    langDict[key] = value
+                    loctable[lang] = langDict
+                }
+            }
+            
+            if let updatedData = try? PropertyListSerialization.data(fromPropertyList: loctable, format: .binary, options: 0) {
+                try? updatedData.write(to: loctablePath)
+            }
+        }
+        
         loadLocalizedStrings()
     }
     
@@ -168,97 +238,515 @@ class AerialService {
         return localizedStrings[key] ?? key
     }
     
-    // MARK: - Wallpaper Management
-    
-    func fetchCurrentWallpaperID() {
-        guard let data = try? Data(contentsOf: indexPath),
-              let plist = try? PropertyListSerialization.propertyList(from: data, options: PropertyListSerialization.ReadOptions(0), format: nil) as? [String: Any],
-              let allSpaces = plist["AllSpacesAndDisplays"] as? [String: Any],
-              let linked = allSpaces["Linked"] as? [String: Any],
-              let content = linked["Content"] as? [String: Any],
-              let choices = content["Choices"] as? [[String: Any]],
-              let firstChoice = choices.first,
-              let configData = firstChoice["Configuration"] as? Data else {
-            return
+    func getThumbnailURL(for assetID: String) -> URL? {
+        // 1. Check local system path first (macOS Sonoma and later use assetID.png)
+        let localURL = systemThumbDir.appendingPathComponent("\(assetID).png")
+        if FileManager.default.fileExists(atPath: localURL.path) {
+            return localURL
         }
         
-        // Decode nested Configuration plist
-        if let config = try? PropertyListSerialization.propertyList(from: configData, options: PropertyListSerialization.ReadOptions(0), format: nil) as? [String: Any],
-           let assetID = config["assetID"] as? String {
-            self.currentAssetID = assetID
-        }
-    }
-    
-    func setWallpaper(assetID: String) {
-        guard let data = try? Data(contentsOf: indexPath),
-              var plist = try? PropertyListSerialization.propertyList(from: data, options: PropertyListSerialization.ReadOptions(Int(PropertyListSerialization.MutabilityOptions.mutableContainers.rawValue)), format: nil) as? [String: Any] else {
-            return
-        }
-        
-        // 1. Prepare nested Configuration data
-        let configDict: [String: Any] = ["assetID": assetID]
-        guard let nestedConfigData = try? PropertyListSerialization.data(fromPropertyList: configDict, format: .binary, options: 0) else { return }
-        
-        // 2. Prepare default options data
-        let optionsDict: [String: Any] = ["values": [:]]
-        guard let nestedOptionsData = try? PropertyListSerialization.data(fromPropertyList: optionsDict, format: .binary, options: 0) else { return }
-        
-        // 3. Update Plist Structure
-        func updateNode(_ key: String) {
-            if var node = plist[key] as? [String: Any],
-               var linked = node["Linked"] as? [String: Any],
-               var content = linked["Content"] as? [String: Any],
-               var choices = content["Choices"] as? [[String: Any]],
-               !choices.isEmpty {
-                
-                choices[0]["Provider"] = "com.apple.wallpaper.choice.aerials"
-                choices[0]["Configuration"] = nestedConfigData
-                choices[0]["Files"] = []
-                
-                content["Choices"] = choices
-                content["EncodedOptionValues"] = nestedOptionsData
-                content["Shuffle"] = "$null"
-                
-                linked["Content"] = content
-                node["Linked"] = linked
-                plist[key] = node
+        // 2. Fallback to remote if asset is known
+        if let asset = manifest?.assets.first(where: { $0.id == assetID }) {
+            // Check original remote URL
+            if let url = URL(string: asset.previewImage) {
+                return url
             }
         }
         
-        updateNode("AllSpacesAndDisplays")
-        updateNode("SystemDefault")
+        return nil
+    }
+    
+    // MARK: - Wallpaper Management
+    
+    struct WallpaperTarget: Identifiable {
+        let id: String
+        let name: String
+        let path: [String] // ["Spaces", "UUID", "Displays", "UUID"] or ["AllSpacesAndDisplays"]
+    }
+    
+    struct WallpaperSpaceStatus: Identifiable {
+        let id: String // UUID or DisplayID
+        let spaceNumber: Int?
+        let internalID: Int? // CGS ManagedSpaceID
+        let name: String
+        let currentAssetID: String?
+        let currentAssetName: String?
+        let displayID: String?
+        let monitorName: String?
+        let windowCount: Int?
+    }
+    
+    var availableTargets: [WallpaperTarget] = []
+    var spaceStatuses: [WallpaperSpaceStatus] = []
+    private var spaceUUIDMap: [Int: String] = [:]
+    
+    var isGlobalMode: Bool = true
+    
+    func getSpaceUUID(for internalID: Int) -> String? {
+        return spaceUUIDMap[internalID]
+    }
+    
+    func refreshSpaceStatus() {
+        let indexPath = URL(fileURLWithPath: "\(NSHomeDirectory())/Library/Application Support/com.apple.wallpaper/Store/Index.plist")
+        guard let data = try? Data(contentsOf: indexPath),
+              let plist = try? PropertyListSerialization.propertyList(from: data, options: PropertyListSerialization.ReadOptions(0), format: nil) as? [String: Any] else {
+            return
+        }
         
-        // 4. Save and Restart
+        DispatchQueue.main.async {
+            self.isGlobalMode = (plist["AllSpacesAndDisplays"] as? [String: Any] != nil)
+        }
+        
+        var statuses: [WallpaperSpaceStatus] = []
+        let cid = CGSMainConnectionID()
+        let displaySpaces = CGSCopyManagedDisplaySpaces(cid) as? [[String: Any]] ?? []
+        
+        func getAssetInfo(from node: [String: Any]) -> (id: String?, name: String?) {
+            var content: [String: Any]?
+            if let desktop = node["Desktop"] as? [String: Any] {
+                content = desktop["Content"] as? [String: Any]
+            } else if let linked = node["Linked"] as? [String: Any] {
+                content = linked["Content"] as? [String: Any]
+            }
+            
+            guard let choices = content?["Choices"] as? [[String: Any]],
+                  let firstChoice = choices.first,
+                  let configData = firstChoice["Configuration"] as? Data,
+                  let config = try? PropertyListSerialization.propertyList(from: configData, options: PropertyListSerialization.ReadOptions(0), format: nil) as? [String: Any],
+                  let assetID = config["assetID"] as? String else {
+                return (nil, nil)
+            }
+            
+            let name = self.localizedStrings[assetID] ?? self.localizedStrings["\(assetID)_NAME"] ?? assetID
+            return (assetID, name)
+        }
+        
+        // 1. Process display spaces from CGS (Real-time order)
+        for display in displaySpaces {
+            let did = display["Display Identifier"] as? String ?? "Unknown"
+            let monitorName = "Monitor \(did.suffix(4))"
+            
+            if let spaces = display["Spaces"] as? [[String: Any]] {
+                for (j, space) in spaces.enumerated() {
+                    let sid = space["ManagedSpaceID"] as? Int ?? 0
+                    let uuid = CGSSpaceCopyName(cid, Int32(sid)) as String? ?? ""
+                    
+                    if !uuid.isEmpty {
+                        spaceUUIDMap[sid] = uuid
+                    }
+                        
+                    
+                    var info: (id: String?, name: String?) = (nil, nil)
+                    
+                    // Match with Index.plist - NO FALLBACKS
+                    if self.isGlobalMode {
+                        // Global Mode: Look ONLY at AllSpacesAndDisplays (if dictionary) or SystemDefault
+                        if let allConfig = plist["AllSpacesAndDisplays"] as? [String: Any] {
+                            info = getAssetInfo(from: allConfig)
+                        } else if let systemDefault = plist["SystemDefault"] as? [String: Any] {
+                            info = getAssetInfo(from: systemDefault)
+                        }
+                    } else {
+                        // Individual Mode: Check display-specific settings first, then fall back to the space's Default.
+                        if let plistSpaces = plist["Spaces"] as? [String: Any],
+                           let sdata = plistSpaces[uuid] as? [String: Any] {
+                            
+                            let monitorNode = (sdata["Displays"] as? [String: Any])?[did] as? [String: Any] ?? sdata["Default"] as? [String: Any]
+                            if let dnode = monitorNode {
+                                info = getAssetInfo(from: dnode)
+                            }
+                        }
+                    }
+                    
+                    let winCount: Int? = nil
+                    
+                    statuses.append(WallpaperSpaceStatus(
+                        id: "\(sid)_\(did)",
+                        spaceNumber: j + 1,
+                        internalID: sid,
+                        name: "Desktop \(j + 1)",
+                        currentAssetID: info.id,
+                        currentAssetName: info.name,
+                        displayID: did,
+                        monitorName: monitorName,
+                        windowCount: winCount
+                    ))
+                }
+            }
+        }
+        
+        // 2. Add "All Spaces" default reference
+        if let allNode = plist["AllSpacesAndDisplays"] as? [String: Any] {
+            let info = getAssetInfo(from: allNode)
+            statuses.append(WallpaperSpaceStatus(
+                id: "All",
+                spaceNumber: 0,
+                internalID: nil,
+                name: "All Spaces & Displays",
+                currentAssetID: info.id,
+                currentAssetName: info.name,
+                displayID: nil,
+                monitorName: "Global Settings",
+                windowCount: nil
+            ))
+            self.currentAssetID = info.id
+        }
+        
+        DispatchQueue.main.async {
+            self.spaceStatuses = statuses
+        }
+    }
+    
+    func switchToSpace(did: String, sid: Int) {
+        let cid = CGSMainConnectionID()
+        var handle: Int = 0
+        
+        // 7 = CGSCube, 2 = CGSRight
+        var spec = CGSTransitionSpec(type: 7, option: 2)
+        
+        // 1. Snapshot
+        _ = CGSNewTransition(cid, &spec, &handle)
+        
+        // 2. Set (Verified Signature: cid, did, sid)
+        _ = CGSManagedDisplaySetCurrentSpace(cid, did as CFString, Int32(sid))
+        
+        // 3. Invoke
+        _ = CGSInvokeTransition(cid, handle, 0.75)
+        
+        // 4. Cleanup
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            _ = CGSReleaseTransition(cid, handle)
+        }
+    }
+    
+    func fetchCurrentWallpaperID() {
+        refreshSpaceStatus()
+    }
+    
+    func loadAvailableTargets() {
+        guard let data = try? Data(contentsOf: indexPath),
+              let plist = try? PropertyListSerialization.propertyList(from: data, options: PropertyListSerialization.ReadOptions(0), format: nil) as? [String: Any] else {
+            return
+        }
+        
+        var targets: [WallpaperTarget] = []
+        
+        // 1. All Spaces (Default)
+        targets.append(WallpaperTarget(id: "All", name: "All Spaces & Displays", path: ["AllSpacesAndDisplays"]))
+        
+        // 2. Individual Spaces
+        if let spaces = plist["Spaces"] as? [String: Any] {
+            let sortedSpaceIDs = spaces.keys.sorted()
+            for (index, spaceID) in sortedSpaceIDs.enumerated() {
+                if let spaceData = spaces[spaceID] as? [String: Any] {
+                    // Try to find display specific desktop under this space
+                    if let displays = spaceData["Displays"] as? [String: Any] {
+                        for displayID in displays.keys {
+                            targets.append(WallpaperTarget(
+                                id: "\(spaceID)_\(displayID)",
+                                name: "Desktop \(index + 1) - Display \(displayID.suffix(4))",
+                                path: ["Spaces", spaceID, "Displays", displayID]
+                            ))
+                        }
+                    } else if spaceData["Default"] != nil {
+                        targets.append(WallpaperTarget(
+                            id: spaceID,
+                            name: "Desktop \(index + 1) (Default)",
+                            path: ["Spaces", spaceID, "Default"]
+                        ))
+                    }
+                }
+            }
+        }
+        
+        self.availableTargets = targets
+    }
+    
+    func setWallpaper(assetID: String, target: WallpaperTarget? = nil) {
+        NSLog("🖼️ [Wallpaper] Target: \(target?.name ?? "All Displays & Spaces"), Asset: \(assetID)")
+        
+        guard let data = try? Data(contentsOf: indexPath),
+              var plist = try? PropertyListSerialization.propertyList(from: data, options: PropertyListSerialization.ReadOptions(Int(PropertyListSerialization.MutabilityOptions.mutableContainers.rawValue)), format: nil) as? [String: Any] else {
+            NSLog("❌ [Wallpaper] Failed to read Index.plist at \(indexPath.path)")
+            return
+        }
+        
+        // Prepare configuration
+        let configDict: [String: Any] = ["assetID": assetID]
+        guard let nestedConfigData = try? PropertyListSerialization.data(fromPropertyList: configDict, format: .binary, options: 0) else { 
+            NSLog("❌ [Wallpaper] Failed to serialize config data")
+            return 
+        }
+        
+        let targetPath = target?.path ?? ["AllSpacesAndDisplays"]
+        NSLog("🔍 [Wallpaper] Navigating path: \(targetPath)")
+        
+        // Path following update (Recursive)
+        func updatePath(_ path: [String], in root: inout [String: Any]) {
+            guard !path.isEmpty else { return }
+            
+            let key = path[0]
+            
+            // If the node doesn't exist, create it (Crucial for fresh spaces/displays)
+            if root[key] == nil {
+                root[key] = [String: Any]()
+                NSLog("🛠️ [Wallpaper] Created missing node for path component: \(key)")
+            }
+            
+            if path.count == 1 {
+                // We are at the monitor/display level (e.g., Displays/ID or Spaces/UUID/Displays/ID)
+                if var node = root[key] as? [String: Any] {
+                    NSLog("📍 [Wallpaper] Found target node: \(key). Updating all relevant containers (Desktop/Idle/Linked).")
+                    
+                    // For specific monitor targets, ensure Type is "individual"
+                    if key != "AllSpacesAndDisplays" && key != "SystemDefault" {
+                        node["Type"] = "individual"
+                    }
+                    
+                    // Aerials/Live Wallpapers often require BOTH 'Desktop' and 'Idle' to be in sync.
+                    let containers = ["Desktop", "Idle", "Linked"]
+                    var updatedAny = false
+                    
+                    for containerKey in containers {
+                        if var containerNode = node[containerKey] as? [String: Any] {
+                            inject(into: &containerNode)
+                            containerNode["LastSet"] = Date()
+                            node[containerKey] = containerNode
+                            updatedAny = true
+                            NSLog("📍 [Wallpaper] Updated \(containerKey) container.")
+                        }
+                    }
+                    
+                    if !updatedAny {
+                        // Create Desktop & Idle if nothing was found
+                        var configNode = [String: Any]()
+                        inject(into: &configNode)
+                        configNode["LastSet"] = Date()
+                        
+                        node["Desktop"] = configNode
+                        node["Idle"] = configNode
+                        NSLog("🛠️ [Wallpaper] Created new Desktop and Idle nodes for \(key)")
+                    }
+                    
+                    root[key] = node
+                }
+            } else {
+                var nextPath = path
+                nextPath.removeFirst()
+                if var nextNode = root[key] as? [String: Any] {
+                    updatePath(nextPath, in: &nextNode)
+                    root[key] = nextNode
+                }
+            }
+        }
+        
+        func inject(into node: inout [String: Any]) {
+            // Force Type to "individual" so this container's content is used
+            node["Type"] = "individual"
+            
+            // macOS wallpaper structure: [Target] -> Desktop/Linked -> Content -> Choices
+            // We MUST ensure 'Content' exists for the setting to be recognized.
+            if node["Content"] == nil {
+                node["Content"] = [String: Any]()
+                NSLog("🛠️ [Wallpaper] Initializing missing 'Content' sub-node.")
+            }
+            
+            if var content = node["Content"] as? [String: Any] {
+                updateContentNode(&content)
+                node["Content"] = content
+                NSLog("✅ [Wallpaper] Successfully updated nested 'Content' structure.")
+            }
+        }
+        
+        func updateContentNode(_ content: inout [String: Any]) {
+            var choices = content["Choices"] as? [[String: Any]] ?? [[String: Any]()]
+            if choices.isEmpty { choices = [[String: Any]()] }
+            
+            choices[0]["Provider"] = "com.apple.wallpaper.choice.aerials"
+            choices[0]["Configuration"] = nestedConfigData
+            choices[0]["Files"] = []
+            
+            content["Choices"] = choices
+            content["Shuffle"] = "$null"
+            
+            // Explicitly remove EncodedOptionValues if present so it doesn't conflict with Choices
+            content.removeValue(forKey: "EncodedOptionValues")
+        }
+        
+        // Update specific target
+        updatePath(targetPath, in: &plist)
+        
+        if target == nil || target?.id == "All" {
+            updatePath(["AllSpacesAndDisplays"], in: &plist)
+            updatePath(["SystemDefault"], in: &plist)
+        }
+        
         do {
             let updatedData = try PropertyListSerialization.data(fromPropertyList: plist, format: .binary, options: 0)
-            
-            // Stop agent first
-            let stopTask = Process()
-            stopTask.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-            stopTask.arguments = ["stop", "com.apple.wallpaper.agent"]
-            try? stopTask.run()
-            stopTask.waitUntilExit()
-            
             try updatedData.write(to: indexPath)
+            NSLog("💾 [Wallpaper] Successfully saved Index.plist.")
             
-            // Kill processes
-            let killTask = Process()
-            killTask.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
-            killTask.arguments = ["-f", "WallpaperAgent|WallpaperAerialsExtension|NeptuneOneWallpaper"]
-            try? killTask.run()
-            killTask.waitUntilExit()
+            // Force reload
+            self.restartWallpaperAgent()
             
-            // Start agent
-            let startTask = Process()
-            startTask.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-            startTask.arguments = ["start", "com.apple.wallpaper.agent"]
-            try? startTask.run()
-            
-            self.currentAssetID = assetID
-            print("Successfully switched to wallpaper: \(assetID)")
+            DispatchQueue.main.async {
+                self.currentAssetID = assetID
+            }
         } catch {
-            print("Failed to set wallpaper: \(error)")
+            NSLog("❌ [Wallpaper] Write failed: \(error.localizedDescription)")
         }
+    }
+    
+    // MARK: - Toggle Global Mode (Native Tree Construction)
+    
+    func toggleGlobalMode(isOn: Bool) {
+        let indexPath = URL(fileURLWithPath: "\(NSHomeDirectory())/Library/Application Support/com.apple.wallpaper/Store/Index.plist")
+        guard let data = try? Data(contentsOf: indexPath),
+              var plist = try? PropertyListSerialization.propertyList(from: data, options: PropertyListSerialization.ReadOptions(0), format: nil) as? [String: Any] else {
+            return
+        }
+        
+        let isCurrentlyGlobal = (plist["AllSpacesAndDisplays"] as? [String: Any] != nil)
+        
+        guard isOn != isCurrentlyGlobal else {
+            NSLog("🔄 [Wallpaper] Global mode is already \(isOn). No action needed.")
+            return
+        }
+        
+        var baseConfig: [String: Any]? = nil
+        
+        if isCurrentlyGlobal {
+            if let config = plist["AllSpacesAndDisplays"] as? [String: Any] {
+                baseConfig = config
+            } else if let config = plist["SystemDefault"] as? [String: Any] {
+                baseConfig = config
+            }
+        } else {
+            if let spaces = plist["Spaces"] as? [String: Any] {
+                for (_, spaceData) in spaces {
+                    if let spaceDict = spaceData as? [String: Any],
+                       let displays = spaceDict["Displays"] as? [String: Any],
+                       let firstDisplayVal = displays.values.first as? [String: Any] {
+                        baseConfig = firstDisplayVal
+                        break
+                    }
+                }
+            }
+            if baseConfig == nil {
+                if let displays = plist["Displays"] as? [String: Any],
+                   let firstDisplayVal = displays.values.first as? [String: Any] {
+                    baseConfig = firstDisplayVal
+                }
+            }
+            if baseConfig == nil {
+                if let config = plist["AllSpacesAndDisplays"] as? [String: Any] {
+                    baseConfig = config
+                } else if let config = plist["SystemDefault"] as? [String: Any] {
+                    baseConfig = config
+                }
+            }
+        }
+        
+        if isOn {
+            NSLog("🧹 [Wallpaper] Enabling Global Mode.")
+            // Explicitly set as dictionary to override all spaces
+            if var systemConfig = baseConfig {
+                systemConfig["Type"] = "linked"
+                plist["AllSpacesAndDisplays"] = systemConfig
+            } else {
+                plist["AllSpacesAndDisplays"] = [String: Any]()
+            }
+            
+            plist.removeValue(forKey: "Spaces")
+            plist.removeValue(forKey: "Displays")
+        } else {
+            NSLog("🔄 [Wallpaper] Disabling Global Mode. Constructing Spaces tree from current global config.")
+            let globalConfig = baseConfig ?? [String: Any]()
+            var newSpaces = [String: Any]()
+            var rootDisplays = [String: Any]()
+            
+            let cid = CGSMainConnectionID()
+            if let displaySpaces = CGSCopyManagedDisplaySpaces(cid) as? [[String: Any]] {
+                for display in displaySpaces {
+                    let did = display["Display Identifier"] as? String ?? ""
+                    
+                    // Root display entry (similar to Apple's native behavior)
+                    var rootDisplayConfig = globalConfig
+                    if rootDisplayConfig["Type"] == nil { rootDisplayConfig["Type"] = "linked" }
+                    if !did.isEmpty {
+                        rootDisplays[did] = rootDisplayConfig
+                    }
+                    
+                    if let spaces = display["Spaces"] as? [[String: Any]] {
+                        for space in spaces {
+                            let sid = space["ManagedSpaceID"] as? Int ?? 0
+                            let uuid = CGSSpaceCopyName(cid, Int32(sid)) as String? ?? ""
+                            // DO NOT skip empty UUIDs, as "" is how macOS stores Desktop 1.
+                            
+                            var spaceDict = newSpaces[uuid] as? [String: Any] ?? [String: Any]()
+                            var displaysDict = spaceDict["Displays"] as? [String: Any] ?? [String: Any]()
+                            
+                            var monitorConfig = globalConfig
+                            if monitorConfig["Type"] == nil { monitorConfig["Type"] = "linked" }
+                            displaysDict[did] = monitorConfig
+                            
+                            var defaultSpaceConfig = globalConfig
+                            if defaultSpaceConfig["Type"] == nil { defaultSpaceConfig["Type"] = "linked" }
+                            
+                            spaceDict["Displays"] = displaysDict
+                            spaceDict["Default"] = defaultSpaceConfig
+                            newSpaces[uuid] = spaceDict
+                        }
+                    }
+                }
+            }
+            plist["Spaces"] = newSpaces
+            plist["Displays"] = rootDisplays
+            plist["AllSpacesAndDisplays"] = "$null"
+        }
+        
+        do {
+            let updatedData = try PropertyListSerialization.data(fromPropertyList: plist, format: .binary, options: 0)
+            try updatedData.write(to: indexPath)
+            NSLog("💾 [Wallpaper] Successfully saved Index.plist for mode switch.")
+            
+            DispatchQueue.main.async {
+                self.isGlobalMode = isOn
+            }
+            
+            self.restartWallpaperAgent()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self.refreshSpaceStatus()
+            }
+            
+        } catch {
+            NSLog("❌ [Wallpaper] Write failed: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Restarts the macOS wallpaper agent and associated processes to force a refresh of both Index.plist and entries.json.
+    func restartWallpaperAgent() {
+        print("Restarting Wallpaper Agent to apply changes...")
+        
+        // 1. Stop agent first
+        let stopTask = Process()
+        stopTask.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        stopTask.arguments = ["stop", "com.apple.wallpaper.agent"]
+        try? stopTask.run()
+        stopTask.waitUntilExit()
+        
+        // 2. Kill associated processes
+        let killTask = Process()
+        killTask.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+        killTask.arguments = ["-f", "WallpaperAgent|WallpaperAerialsExtension|NeptuneOneWallpaper"]
+        try? killTask.run()
+        killTask.waitUntilExit()
+        
+        // 3. Start agent back up
+        let startTask = Process()
+        startTask.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        startTask.arguments = ["start", "com.apple.wallpaper.agent"]
+        try? startTask.run()
     }
     
     // MARK: - File Management
@@ -278,8 +766,20 @@ class AerialService {
         systemVideoDir.appendingPathComponent("\(assetID).mov")
     }
     
-    func systemThumbnailURL(for assetID: String) -> URL {
-        systemThumbDir.appendingPathComponent("\(assetID).png")
+    func systemThumbnailURL(for assetID: String) -> URL? {
+        // 1. Local path (macOS Sonoma default)
+        let localURL = systemThumbDir.appendingPathComponent("\(assetID).png")
+        if FileManager.default.fileExists(atPath: localURL.path) {
+            return localURL
+        }
+        
+        // 2. Fallback to manifest remote URL if local is missing
+        if let asset = manifest?.assets.first(where: { $0.id == assetID }),
+           let url = URL(string: asset.previewImage) {
+            return url
+        }
+        
+        return nil
     }
     
     // MARK: - Direct Manifest Modification
@@ -307,6 +807,9 @@ class AerialService {
             let data = try encoder.encode(manifest)
             try data.write(to: manifestPath)
             print("Successfully saved manifest to system path.")
+            
+            // Force macOS to reload the Updated entries.json
+            self.restartWallpaperAgent()
         } catch {
             print("Failed to save manifest: \(error)")
         }
@@ -526,24 +1029,31 @@ class AerialService {
     
     /// Removes a key from localization strings files
     private func removeFromStrings(key: String) {
+        // 1. Update .strings files
         let languages = ["en", "ko"]
         for lang in languages {
             let url = stringsBundlePath.appendingPathComponent("\(lang).lproj/Localizable.nocache.strings")
+            if var dict = try? PropertyListSerialization.propertyList(from: Data(contentsOf: url), options: PropertyListSerialization.ReadOptions(Int(PropertyListSerialization.MutabilityOptions.mutableContainers.rawValue)), format: nil) as? [String: String] {
+                dict.removeValue(forKey: key)
+                if let data = try? PropertyListSerialization.data(fromPropertyList: dict, format: .binary, options: 0) {
+                    try? data.write(to: url)
+                }
+            }
+        }
+        
+        // 2. Update .loctable
+        if let data = try? Data(contentsOf: loctablePath),
+           var loctable = try? PropertyListSerialization.propertyList(from: data, options: PropertyListSerialization.ReadOptions(Int(PropertyListSerialization.MutabilityOptions.mutableContainers.rawValue)), format: nil) as? [String: Any] {
             
-            var dict: [String: String] = [:]
-            
-            if let data = try? Data(contentsOf: url),
-               let existing = (try? PropertyListSerialization.propertyList(from: data, options: PropertyListSerialization.ReadOptions(0), format: nil)) as? [String: String] {
-                dict = existing
+            for lang in loctable.keys where lang != "LocProvenance" {
+                if var langDict = loctable[lang] as? [String: String] {
+                    langDict.removeValue(forKey: key)
+                    loctable[lang] = langDict
+                }
             }
             
-            dict.removeValue(forKey: key)
-            
-            do {
-                let data = try PropertyListSerialization.data(fromPropertyList: dict, format: .binary, options: 0)
-                try data.write(to: url)
-            } catch {
-                print("Failed to update strings for \(lang): \(error)")
+            if let updatedData = try? PropertyListSerialization.data(fromPropertyList: loctable, format: .binary, options: 0) {
+                try? updatedData.write(to: loctablePath)
             }
         }
         
