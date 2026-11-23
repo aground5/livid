@@ -1,0 +1,20 @@
+name: ✨ 기능 제안 / Feature request
+description: 원하는 기능을 제안해 주세요 / Suggest an idea for Livid
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: 어떤 기능이 있으면 좋을까요? / What would you like?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: 왜 필요한가요? / Why do you need it?
+      description: 지금은 어떻게 하고 있는지, 어떤 점이 불편한지 알려주세요. / How you work today and what gets in the way.
+  - type: textarea
+    id: extra
+    attributes:
+      label: 참고 자료 / Anything else
+      description: 스크린샷, 다른 앱의 예시 등 / Screenshots, examples from other apps, etc.

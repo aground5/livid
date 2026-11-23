@@ -1,0 +1,61 @@
+name: 🐞 버그 제보 / Bug report
+description: Livid에서 문제가 생겼을 때 / Something isn't working
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 무슨 일이 있었나요? / What happened?
+      description: 기대한 동작과 실제 동작을 알려주세요. / What you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 재현 방법 / Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: dropdown
+    id: type
+    attributes:
+      label: 배경화면 종류 / Wallpaper type
+      options:
+        - 이미지 / Image
+        - 동영상 / Video
+        - YouTube
+        - 웹 페이지 / Web page
+        - Wallpaper Engine (Scene)
+        - Wallpaper Engine (Web)
+        - 캔버스 / Canvas
+        - 해당 없음 / Not related
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Livid 버전 / Livid version
+      description: 설정 화면에서 확인할 수 있습니다. / Shown in Settings.
+      placeholder: "2026.11.23"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS 버전 / macOS version
+      placeholder: "26.1"
+    validations:
+      required: true
+  - type: input
+    id: mac
+    attributes:
+      label: Mac 모델 / Mac model
+      placeholder: "MacBook Pro 14 (M3 Pro)"
+  - type: textarea
+    id: extra
+    attributes:
+      label: 스크린샷 · 로그 / Screenshots or logs
+      description: 화면 녹화나 스크린샷을 끌어다 놓아 주세요. / Drag screenshots or recordings here.
