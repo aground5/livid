@@ -27,4 +27,4 @@ Please search [existing issues](../../issues?q=is%3Aissue) before opening a new 
 
 ---
 
-© 2026 k2zoo. All rights reserved.
+© 2026 Peri Inc. All rights reserved.
